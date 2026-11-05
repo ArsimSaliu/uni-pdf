@@ -111,4 +111,6 @@ Bug reports and ideas from students are very welcome. See [CONTRIBUTING.md](CONT
 
 ## License
 
-Public domain ([Unlicense](LICENSE)). The bundled libraries keep their own licences (see `app/vendor/`).
+uni-pdf's own code is public domain ([Unlicense](LICENSE)). The bundled libraries and fonts keep their own licences: see [app/vendor/THIRD-PARTY-NOTICES.md](app/vendor/THIRD-PARTY-NOTICES.md).
+
+uni-pdf is an independent project. It isn't affiliated with Adobe, Anki or any other product mentioned in this repository, and their names are used only to describe compatibility.

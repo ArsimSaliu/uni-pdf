@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>uni-pdf flyer</title>
+<!-- Printable A4 flyer. Open in a browser and print, or run: node scripts/make-marketing.js
+     Add ?lang=de for the German version. -->
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1b2333; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet { width: 210mm; height: 297mm; padding: 18mm 16mm 14mm; display: flex; flex-direction: column; background: linear-gradient(160deg, #eef3fd 0%, #ffffff 45%); overflow: hidden; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 26px; letter-spacing: -.02em; }
+  h1 { font-size: 48px; line-height: 1.04; letter-spacing: -.035em; margin: 11mm 0 5mm; }
+  .mark { background: linear-gradient(transparent 58%, rgba(255,214,0,.7) 58%); }
+  .lead { font-size: 18px; line-height: 1.45; color: #4a5263; margin: 0 0 7mm; max-width: 165mm; }
+  .shot { width: 100%; height: 100mm; object-fit: cover; object-position: top left; border-radius: 10px; border: 1px solid #d9dfea; box-shadow: 0 12px 34px rgba(27,35,51,.16); }
+  .row { display: flex; gap: 10mm; margin-top: auto; padding-top: 8mm; align-items: flex-end; }
+  ul { list-style: none; padding: 0; margin: 0; flex: 1; font-size: 17px; line-height: 1.5; }
+  li { padding-left: 30px; position: relative; margin: 7px 0; }
+  li::before { content: "✓"; position: absolute; left: 0; top: 2px; width: 21px; height: 21px; border-radius: 50%; background: #2f6fde; color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; }
+  .qr { text-align: center; width: 44mm; flex: none; }
+  .qr img { width: 44mm; height: 44mm; display: block; background: #fff; border-radius: 8px; }
+  .qr b { display: block; margin-top: 6px; font-size: 15px; }
+  .qr small { color: #5a6273; font-size: 11px; word-break: break-all; }
+  .foot { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #dfe4ee; font-size: 12px; color: #5a6273; display: flex; justify-content: space-between; }
+  html[lang="en"] [data-lang="de"], html[lang="de"] [data-lang="en"] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="brand"><img src="../app/icons/icon.svg" width="44" height="44" alt=""> uni-pdf</div>
+
+  <h1 data-lang="en">Your lecture notes,<br><span class="mark">right on the slides.</span></h1>
+  <h1 data-lang="de">Deine Mitschrift,<br><span class="mark">direkt auf den Folien.</span></h1>
+
+  <p class="lead" data-lang="en">Open the lecture PDF, highlight what matters, attach notes to any sentence or diagram, and export one PDF with your notes next to every slide.</p>
+  <p class="lead" data-lang="de">Vorlesungs-PDF öffnen, Wichtiges markieren, Notizen an Sätze oder Diagramme heften und am Ende ein PDF mit deinen Notizen neben jeder Folie exportieren.</p>
+
+  <img class="shot" src="../site/assets/reader.png" alt="">
+
+  <div class="row">
+    <ul data-lang="en">
+      <li><b>Free</b> and open source</li>
+      <li><b>No account</b>, nothing uploaded</li>
+      <li>Works <b>offline</b>, in any browser</li>
+      <li>Export to <b>PDF</b> or <b>Markdown</b></li>
+    </ul>
+    <ul data-lang="de">
+      <li><b>Kostenlos</b> und Open Source</li>
+      <li><b>Kein Konto</b>, nichts wird hochgeladen</li>
+      <li>Funktioniert <b>offline</b>, in jedem Browser</li>
+      <li>Export als <b>PDF</b> oder <b>Markdown</b></li>
+    </ul>
+    <div class="qr">
+      <img src="assets/qr-homepage.svg" alt="QR code">
+      <b data-lang="en">Scan to try it</b><b data-lang="de">Scannen &amp; ausprobieren</b>
+      <small>arsimsaliu.github.io/uni-pdf</small>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span data-lang="en">Made by a student, for students.</span><span data-lang="de">Von Studierenden, für Studierende.</span>
+    <span>github.com/ArsimSaliu/uni-pdf</span>
+  </div>
+</div>
+<script>
+  if (/[?&]lang=de\b/.test(location.search)) document.documentElement.lang = 'de';
+</script>
+</body>
+</html>

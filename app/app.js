@@ -1,4 +1,4 @@
-/* Lecture Notes PDF — a PDF reader with a notes panel and text-anchored notes.
+/* uni-pdf: a PDF reader with a notes panel and text-anchored notes.
  * Everything is stored locally in IndexedDB (PDF files + notes). */
 (() => {
   'use strict';
@@ -9,6 +9,7 @@
   const MIN_SCALE = 0.3;
   const MAX_SCALE = 5;
   const MAX_RENDERED_PAGES = 14;
+  const VERSION = '1.0.0';
 
   // ------------------------------------------------------------------ helpers
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -47,9 +48,17 @@
   }
 
   let toastTimer;
-  function toast(msg, ms = 2200) {
+  // toast(msg, ms, {label, run}) shows an optional action button (e.g. Undo).
+  function toast(msg, ms = 2200, action) {
     const t = $('#toast');
-    t.textContent = msg;
+    const btn = $('#toastAction');
+    $('#toastMsg').textContent = msg;
+    btn.hidden = !action;
+    btn.onclick = null;
+    if (action) {
+      btn.textContent = action.label;
+      btn.onclick = () => { t.hidden = true; action.run(); };
+    }
     t.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { t.hidden = true; }, ms);
@@ -174,6 +183,19 @@
     await openDoc(id);
   }
 
+  async function openSample() {
+    try {
+      if (!window.UNIPDF_SAMPLE) await loadScript('sample-lecture.js');
+      const { name, b64 } = window.UNIPDF_SAMPLE;
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      await importFile(new File([bytes], name, { type: 'application/pdf' }));
+      toast('This is a demo lecture. Select some text to highlight it, or press ? for shortcuts.', 6000);
+    } catch (err) {
+      console.error(err);
+      toast('Could not open the demo: ' + err.message, 5000);
+    }
+  }
+
   async function readEmbeddedNotes(buf) {
     try {
       await ensureWorker();
@@ -274,7 +296,7 @@
 
     $('#docTitle').textContent = baseName(rec.name);
     $('#docTitle').title = rec.name;
-    document.title = baseName(rec.name) + ' — Lecture Notes PDF';
+    document.title = baseName(rec.name) + ' · uni-pdf';
     $('#pageCount').textContent = String(pdf.numPages);
     $('#docNote').value = rec.docNote;
 
@@ -315,6 +337,7 @@
     $('#reader').hidden = true;
     $('#library').hidden = false;
     document.body.classList.remove('has-doc');
+    document.title = 'uni-pdf: lecture slides and your notes, side by side';
     hideSelToolbar();
     renderLibrary();
   }
@@ -795,6 +818,19 @@
     renderHighlights(a.page);
     renderPagePanel();
     if (S.tab === 'all') renderAllPanel();
+    const docId = S.doc.id;
+    toast(hasNote(a) ? 'Highlight and note deleted.' : 'Highlight deleted.', 6000, {
+      label: 'Undo',
+      run: () => {
+        if (!S.doc || S.doc.id !== docId) return;
+        S.doc.annotations.splice(Math.min(i, S.doc.annotations.length), 0, a);
+        scheduleSave();
+        renderHighlights(a.page);
+        renderPagePanel();
+        if (S.tab === 'all') renderAllPanel();
+        flashAnnot(a.id);
+      },
+    });
   }
 
   // ------------------------------------------------------------------ area (box) annotations
@@ -845,7 +881,8 @@
     S.areaMode = on;
     document.body.classList.toggle('area-mode', on);
     $('#btnArea').classList.toggle('active', on);
-    if (on) toast('Area mode: drag a box over a diagram, formula or image. Esc to exit.');
+    if (on) toast('Area mode: drag a box over a diagram, formula or image. Esc to cancel.', 4000);
+    else if (!$('#toast').hidden && $('#toastMsg').textContent.startsWith('Area mode')) $('#toast').hidden = true;
   }
 
   // ------------------------------------------------------------------ PDF mouse interactions
@@ -933,7 +970,10 @@
       if (!window.getSelection().isCollapsed) suppressClick = true;
     }
     if (drawing) {
-      if (finishDraw()) suppressClick = true;
+      if (finishDraw()) {
+        suppressClick = true;
+        if (S.areaMode) setAreaMode(false); // one box per click of "Area"
+      }
       return;
     }
     if (selToolbar.contains(e.target)) return;
@@ -942,6 +982,22 @@
       if (range) showSelToolbar(range);
       else if (!selToolbar.hidden) hideSelToolbar();
     }, 0);
+  });
+
+  // Touch devices: text is selected by long-press and adjusted with handles, with no
+  // mouseup. Show the toolbar once the selection settles.
+  let selTimer = 0;
+  let pointerDown = false;
+  document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
+  document.addEventListener('pointerup', () => { pointerDown = false; }, true);
+  document.addEventListener('pointercancel', () => { pointerDown = false; }, true);
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selTimer);
+    selTimer = setTimeout(() => {
+      if (pointerDown || drawing || marginSel) return;
+      const range = selectionInTextLayer();
+      if (range) showSelToolbar(range);
+    }, 350);
   });
 
   pagesEl.addEventListener('click', (e) => {
@@ -1055,10 +1111,7 @@
       foot.appendChild(s);
     }
     const del = el('button', 'annot-del', 'Delete');
-    del.addEventListener('click', () => {
-      if (a.note && a.note.trim() && !confirm('Delete this highlight and its note?')) return;
-      deleteAnnotation(a.id);
-    });
+    del.addEventListener('click', () => deleteAnnotation(a.id));
     foot.appendChild(del);
     card.appendChild(foot);
     return card;
@@ -1253,8 +1306,9 @@
   }
 
   const exportMenu = $('#exportMenu');
-  $('#btnExport').addEventListener('click', (e) => { e.stopPropagation(); exportMenu.hidden = !exportMenu.hidden; });
-  document.addEventListener('click', () => { exportMenu.hidden = true; });
+  const setMenu = (open) => { exportMenu.hidden = !open; $('#btnExport').setAttribute('aria-expanded', String(open)); };
+  $('#btnExport').addEventListener('click', (e) => { e.stopPropagation(); setMenu(exportMenu.hidden); });
+  document.addEventListener('click', () => setMenu(false));
   $$('[data-export]', exportMenu).forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.export;
     if (k === 'pdf') exportPdf(false);
@@ -1270,11 +1324,18 @@
   });
 
   // ------------------------------------------------------------------ toolbar wiring
-  $('#fileInput').addEventListener('change', (e) => {
+  ['#fileInput', '#fileInput2'].forEach((sel) => $(sel).addEventListener('change', (e) => {
     const f = e.target.files[0];
     e.target.value = '';
     importFile(f).catch((err) => { console.error(err); toast('Error: ' + err.message, 5000); });
-  });
+  }));
+  $('#btnSample').addEventListener('click', openSample);
+  const helpDialog = $('#helpDialog');
+  const openHelp = () => { if (!helpDialog.open) helpDialog.showModal(); };
+  $('#btnHelp').addEventListener('click', openHelp);
+  $('#btnHelp2').addEventListener('click', openHelp);
+  helpDialog.addEventListener('click', (e) => { if (e.target === helpDialog) helpDialog.close(); });
+  $('#appVersion').textContent = 'uni-pdf v' + VERSION;
   $('#btnLibrary').addEventListener('click', showLibrary);
   $('#btnPrev').addEventListener('click', () => goToPage(S.currentPage - 1));
   $('#btnNext').addEventListener('click', () => goToPage(S.currentPage + 1));
@@ -1327,9 +1388,12 @@
     if (e.key === 'Escape') {
       if (S.areaMode) setAreaMode(false);
       hideSelToolbar();
-      exportMenu.hidden = true;
+      setMenu(false);
     }
-    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || !S.doc || $('#reader').hidden) return;
+    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || helpDialog.open) return;
+    if (e.key === '?') { e.preventDefault(); openHelp(); return; }
+    if (e.key === 'o' || e.key === 'O') { e.preventDefault(); $('#fileInput').click(); return; }
+    if (!S.doc || $('#reader').hidden) return;
     const k = e.key;
     if (k === 'ArrowRight' || k === 'PageDown') { e.preventDefault(); goToPage(S.currentPage + 1); }
     else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); goToPage(S.currentPage - 1); }
@@ -1352,12 +1416,31 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden && saveTimer) flushSave(); });
 
   // ------------------------------------------------------------------ boot
+  // Offline support + "Install app" when served over http(s). Not available from file://.
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !/[?&]nosw\b/.test(location.search)) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('Service worker failed', err)));
+  }
+
   (async () => {
     try {
       await DB.open();
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      // Installed app launched by opening a PDF from the OS ("Open with uni-pdf").
+      if ('launchQueue' in window) {
+        window.launchQueue.setConsumer(async (params) => {
+          for (const h of params.files || []) {
+            try { await importFile(await h.getFile()); } catch (err) { toast('Could not open file: ' + err.message, 5000); }
+            break;
+          }
+        });
+      }
       const docs = await DB.all('docs');
-      if (docs.length) {
+      if (location.hash === '#demo') {
+        // Linked from the homepage's "Try the demo lecture" button.
+        history.replaceState(null, '', location.pathname + location.search);
+        renderLibrary();
+        await openSample();
+      } else if (docs.length) {
         // Re-open whatever was open last time.
         const last = docs.sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0))[0];
         renderLibrary();

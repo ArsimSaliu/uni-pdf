@@ -96,6 +96,24 @@ async function annotate(page, { slow = 0 } = {}) {
   await page.click('#selToolbar .swatch[data-color="green"]');
   await page.keyboard.press('Escape');
   await page.keyboard.press('q'); // ❓ question for the tutorial
+  // circle the second time slice (P2) in the Gantt chart with the red pen
+  await page.keyboard.press('d');
+  await page.click('.dtool[data-tool="pen"]');
+  await page.click('.dcolor[data-color="red"]');
+  await page.click('.dsize[data-size="1"]');
+  {
+    const g = await page.locator('.page[data-page="5"]').boundingBox();
+    const cx = 0.385, cy = 0.705, rx = 0.06, ry = 0.095;
+    await page.mouse.move(g.x + g.width * (cx + rx), g.y + g.height * cy);
+    await page.mouse.down();
+    for (let i = 1; i <= 36; i++) {
+      const t = (i / 36) * Math.PI * 2.1;
+      await page.mouse.move(g.x + g.width * (cx + rx * Math.cos(t)), g.y + g.height * (cy + ry * Math.sin(t)));
+      if (slow) await page.waitForTimeout(12);
+    }
+    await page.mouse.up();
+  }
+  await page.keyboard.press('Escape');
   await page.locator('.tab[data-tab="doc"]').click();
   await page.locator('#docNote').fill('Summary\n- Process = program + state (PCB)\n- 5 states, know the transitions\n- FCFS / SJF / RR: practise waiting-time calculations\n\nQuestions for the tutorial\n- What happens to the PCB when a process terminates?');
   await page.locator('.tab[data-tab="page"]').click();

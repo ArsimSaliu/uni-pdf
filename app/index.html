@@ -15,7 +15,7 @@
 <body>
   <header class="toolbar">
     <div class="tb-group">
-      <button id="btnLibrary" class="btn" title="Library (L)"><span class="brand-dot" aria-hidden="true"></span>Library</button>
+      <button id="btnLibrary" class="btn" title="Library (L)"><span class="brand-dot" aria-hidden="true"></span><span class="lbl">Library</span></button>
       <label class="btn primary" title="Open a PDF (O)">
         Open PDF
         <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
@@ -36,6 +36,7 @@
       <button id="btnZoomLabel" class="btn zoom-label" title="Fit to width (0)">100%</button>
       <button id="btnZoomIn" class="btn icon" title="Zoom in (+)" aria-label="Zoom in">+</button>
       <button id="btnArea" class="btn" title="Area note: drag a box over a diagram or image (A). Alt+drag also works.">▭<span class="lbl"> Area</span></button>
+      <button id="btnDraw" class="btn" title="Draw on the slide with a pen or highlighter (D)" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.2l3 3L5.5 13.5 2 14l.5-3.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="lbl"> Draw</span></button>
       <button id="btnFind" class="btn icon" title="Search in the slides (Ctrl+F)" aria-label="Search in the slides"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
 
@@ -128,6 +129,30 @@
           <button id="findNext" class="btn icon small" title="Next match (Enter)" aria-label="Next match">↓</button>
           <button id="findClose" class="btn icon small" title="Close (Esc)" aria-label="Close search">✕</button>
         </div>
+        <div id="drawBar" class="draw-bar" hidden role="toolbar" aria-label="Drawing tools">
+          <div class="seg" role="group" aria-label="Tool">
+            <button class="dtool active" data-tool="pen" title="Pen" aria-label="Pen"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.2l3 3L5.5 13.5 2 14l.5-3.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+            <button class="dtool" data-tool="marker" title="Highlighter" aria-label="Highlighter"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5l4 4-5.5 5.5H4v-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M2 14.5h7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".45"/></svg></button>
+            <button class="dtool" data-tool="eraser" title="Eraser: tap or drag over a stroke" aria-label="Eraser"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 13.5L2.5 10a1.4 1.4 0 010-2l5.5-5.5a1.4 1.4 0 012 0L13.5 6a1.4 1.4 0 010 2L8 13.5zM5 6l5 5M6 13.5h8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+          </div>
+          <span class="sep"></span>
+          <div class="dcolors" role="group" aria-label="Colour">
+            <button class="dcolor" data-color="black" title="Black" aria-label="Black"></button>
+            <button class="dcolor" data-color="red" title="Red" aria-label="Red"></button>
+            <button class="dcolor" data-color="blue" title="Blue" aria-label="Blue"></button>
+            <button class="dcolor" data-color="green" title="Green" aria-label="Green"></button>
+            <button class="dcolor" data-color="yellow" title="Yellow" aria-label="Yellow"></button>
+          </div>
+          <span class="sep"></span>
+          <div class="dsizes" role="group" aria-label="Size">
+            <button class="dsize" data-size="0" title="Thin" aria-label="Thin"><i></i></button>
+            <button class="dsize" data-size="1" title="Medium" aria-label="Medium"><i></i></button>
+            <button class="dsize" data-size="2" title="Thick" aria-label="Thick"><i></i></button>
+          </div>
+          <span class="sep"></span>
+          <button id="drawUndo" class="btn icon small" title="Undo (Ctrl+Z)" aria-label="Undo"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4L2.5 7l3 3M3 7h6.5a4 4 0 010 8H7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="drawDone" class="btn small primary" title="Stop drawing (Esc)">Done</button>
+        </div>
         <div id="viewer" class="viewer" tabindex="-1">
           <div id="pages" class="pages"></div>
         </div>
@@ -199,6 +224,7 @@
         <tr><td><kbd>H</kbd></td><td>Highlight the selected text</td></tr>
         <tr><td><kbd>N</kbd></td><td>Highlight the selection and write a note</td></tr>
         <tr><td><kbd>A</kbd> or <kbd>Alt</kbd> + drag</td><td>Area note: box a diagram, formula or image</td></tr>
+        <tr><td><kbd>D</kbd></td><td>Draw with a pen or highlighter (<kbd>Ctrl</kbd> + <kbd>Z</kbd> undo, <kbd>Esc</kbd> done)</td></tr>
         <tr><td><kbd>P</kbd></td><td>Write notes for the current page</td></tr>
         <tr><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>Mark the page ⭐ exam-relevant / ❓ question to ask</td></tr>
         <tr><td><kbd>Ctrl</kbd> + <kbd>F</kbd></td><td>Search in the slides (<kbd>Enter</kbd> next match)</td></tr>

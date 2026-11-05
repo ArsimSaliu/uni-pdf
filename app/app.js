@@ -6,6 +6,9 @@
   const pdfjsLib = window.pdfjsLib;
   const WORKER_SRC = 'vendor/pdf.worker.min.js';
   const COLORS = ['yellow', 'green', 'blue', 'pink'];
+  const INK_COLORS = { black: '#1f2328', red: '#e03131', blue: '#2f6fde', green: '#2b9a4b', yellow: '#f5c400' };
+  const INK_SIZES = { pen: [1.2, 2.4, 4.8], marker: [9, 15, 24] }; // stroke width in PDF points
+  const SVGNS = 'http://www.w3.org/2000/svg';
   const MIN_SCALE = 0.3;
   const MAX_SCALE = 5;
   const MAX_RENDERED_PAGES = 14;
@@ -297,10 +300,15 @@
       div.appendChild(el('div', 'page-label', String(i + 1)));
       const hlLayer = el('div', 'hlLayer');
       div.appendChild(hlLayer);
+      const inkLayer = document.createElementNS(SVGNS, 'svg');
+      inkLayer.setAttribute('class', 'inkLayer');
+      inkLayer.setAttribute('viewBox', `0 0 ${vp.width} ${vp.height}`);
+      inkLayer.setAttribute('preserveAspectRatio', 'none');
+      div.appendChild(inkLayer);
       pagesEl.appendChild(div);
       const findLayer = el('div', 'findLayer');
       div.appendChild(findLayer);
-      return { num: i + 1, page, div, hlLayer, findLayer, baseW: vp.width, baseH: vp.height, canvas: null, textLayer: null, textDivs: null, renderedScale: null, token: null, renderTask: null, textContent: null };
+      return { num: i + 1, page, div, hlLayer, inkLayer, findLayer, baseW: vp.width, baseH: vp.height, canvas: null, textLayer: null, textDivs: null, renderedScale: null, token: null, renderTask: null, textContent: null };
     });
 
     $('#docTitle').textContent = baseName(rec.name);
@@ -327,6 +335,7 @@
   }
 
   async function closeDoc() {
+    if (D.on) setDrawMode(false);
     S.visible.clear();
     io.disconnect();
     clearThumbs();
@@ -601,7 +610,7 @@
     p.hlLayer.textContent = '';
     for (const a of annotsOnPage(n)) {
       a.rects.forEach((r, i) => {
-        const d = el('div', `hl ${a.color}${a.type === 'area' ? ' area' : ''}`);
+        const d = el('div', `hl ${a.color}${a.type === 'area' ? ' area' : a.type === 'ink' ? ' ink' : ''}`);
         if (a.note && a.note.trim()) d.classList.add('has-note');
         if (i === a.rects.length - 1) d.classList.add('last');
         if (a.id === S.activeId) d.classList.add('active');
@@ -613,6 +622,7 @@
         p.hlLayer.appendChild(d);
       });
     }
+    renderInk(p);
   }
 
   function normPoint(e, pageDiv) {
@@ -626,6 +636,7 @@
     let bestArea = Infinity;
     for (const a of S.doc.annotations) {
       if (a.page !== pageNum) continue;
+      if (a.type === 'ink' && !nearInk(a, x, y, 5)) continue;
       for (const r of a.rects) {
         if (x >= r[0] - pad && x <= r[0] + r[2] + pad && y >= r[1] - pad && y <= r[1] + r[3] + pad) {
           const area = a.rects.reduce((s, q) => s + q[2] * q[3], 0);
@@ -657,6 +668,9 @@
   }
 
   const hasNote = (a) => !!(a.note && a.note.trim());
+  const annotLabel = (a, short) => (a.text ? `“${a.text}”`
+    : a.type === 'ink' ? (short ? '✏ Drawing' : '✏ Drawing on page ' + a.page)
+      : (short ? '▭ Area' : '▭ Area on page ' + a.page));
 
   // Highlights without a note only get a card while they are selected.
   function pruneEmptyCard(id) {
@@ -913,6 +927,7 @@
   }
 
   function setAreaMode(on) {
+    if (on && D.on) setDrawMode(false);
     S.areaMode = on;
     document.body.classList.toggle('area-mode', on);
     $('#btnArea').classList.toggle('active', on);
@@ -925,7 +940,7 @@
   let suppressClick = false;
 
   pagesEl.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || D.on) return;
     const pageDiv = e.target.closest('.page');
     if (!pageDiv) return;
     if (S.areaMode || e.altKey) {
@@ -1104,7 +1119,7 @@
       card.remove();
     });
 
-    const quote = el('div', 'annot-quote', a.text ? `“${a.text}”` : '▭ Area on page ' + a.page);
+    const quote = el('div', 'annot-quote', annotLabel(a));
     quote.title = 'Show in PDF';
     quote.addEventListener('click', () => { setActive(a.id); scrollToAnnot(a); });
     card.appendChild(quote);
@@ -1130,14 +1145,15 @@
 
     const foot = el('div', 'annot-foot');
     foot.appendChild(el('span', 'time', fmtTime(a.createdAt)));
-    for (const c of COLORS) {
+    const palette = a.type === 'ink' ? Object.keys(INK_COLORS) : COLORS;
+    for (const c of palette) {
       const s = el('button', 'mini-swatch' + (c === a.color ? ' sel' : ''));
       s.dataset.color = c;
       s.title = c;
       s.addEventListener('click', () => {
         a.color = c;
-        S.lastColor = c;
-        COLORS.forEach((k) => card.classList.remove(k));
+        if (a.type !== 'ink') S.lastColor = c;
+        palette.forEach((k) => card.classList.remove(k));
         card.classList.add(c);
         $$('.mini-swatch', foot).forEach((m) => m.classList.toggle('sel', m.dataset.color === c));
         renderHighlights(a.page);
@@ -1210,7 +1226,7 @@
       for (const a of annots) {
         const it = el('div', `all-item ${a.color}`);
         const qd = el('div', 'q');
-        appendMarked(qd, a.text ? `“${a.text}”` : '▭ Area', q);
+        appendMarked(qd, annotLabel(a, true), q);
         it.appendChild(qd);
         if (a.note && a.note.trim()) {
           const nd = el('div', 'n');
@@ -1437,6 +1453,312 @@
       return 0;
     }
   }
+
+  // ------------------------------------------------------------------ drawing (pen, highlighter, eraser)
+  // A drawing is an annotation of type 'ink': strokes are flat [x0, y0, x1, y1, ...] arrays in
+  // page coordinates (0..1), so they stay attached to the slide at every zoom level.
+  const D = {
+    on: false,
+    tool: 'pen',
+    colors: { pen: 'black', marker: 'yellow' },
+    sizes: { pen: 1, marker: 1 },
+    live: null,     // stroke being drawn right now
+    session: null,  // {id, page, key}: strokes in a row on one page join one drawing
+    undo: [],
+  };
+  try { Object.assign(D, JSON.parse(localStorage.getItem('drawPrefs') || '{}')); } catch (_) { /* ignore */ }
+  D.on = false;
+  D.live = null;
+  D.session = null;
+  D.undo = [];
+  if (!['pen', 'marker', 'eraser'].includes(D.tool)) D.tool = 'pen';
+  const drawBar = $('#drawBar');
+
+  function saveDrawPrefs() {
+    try { localStorage.setItem('drawPrefs', JSON.stringify({ tool: D.tool, colors: D.colors, sizes: D.sizes })); } catch (_) { /* ignore */ }
+  }
+
+  function strokePath(pts, W, H) {
+    const n = pts.length / 2;
+    const X = (i) => (pts[2 * i] * W).toFixed(2);
+    const Y = (i) => (pts[2 * i + 1] * H).toFixed(2);
+    if (n === 1) return `M${X(0)} ${Y(0)}l0.01 0`;
+    let d = `M${X(0)} ${Y(0)}`;
+    if (n === 2) return d + `L${X(1)} ${Y(1)}`;
+    for (let i = 1; i < n - 1; i++) {
+      const mx = (((pts[2 * i] + pts[2 * i + 2]) / 2) * W).toFixed(2);
+      const my = (((pts[2 * i + 1] + pts[2 * i + 3]) / 2) * H).toFixed(2);
+      d += `Q${X(i)} ${Y(i)} ${mx} ${my}`;
+    }
+    return d + `L${X(n - 1)} ${Y(n - 1)}`;
+  }
+
+  function strokeStyle(el2, a, baseW) {
+    el2.setAttribute('stroke', INK_COLORS[a.color] || INK_COLORS.black);
+    el2.setAttribute('stroke-width', String(a.width * baseW));
+    el2.setAttribute('class', a.tool === 'marker' ? 'ink marker' : 'ink');
+  }
+
+  function renderInk(p) {
+    if (!p.inkLayer || !S.doc) return;
+    p.inkLayer.textContent = '';
+    for (const a of S.doc.annotations) {
+      if (a.page !== p.num || a.type !== 'ink') continue;
+      const g = document.createElementNS(SVGNS, 'g');
+      g.dataset.id = a.id;
+      if (a.id === S.activeId) g.classList.add('active');
+      for (const pts of a.strokes) {
+        const path = document.createElementNS(SVGNS, 'path');
+        path.setAttribute('d', strokePath(pts, p.baseW, p.baseH));
+        strokeStyle(path, a, p.baseW);
+        g.appendChild(path);
+      }
+      p.inkLayer.appendChild(g);
+    }
+  }
+
+  function drawInkOnCanvas(ctx, a, W, H) {
+    ctx.strokeStyle = INK_COLORS[a.color] || INK_COLORS.black;
+    ctx.lineWidth = a.width * W;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = a.tool === 'marker' ? 0.4 : 1;
+    if (a.tool === 'marker') ctx.globalCompositeOperation = 'multiply';
+    for (const pts of a.strokes) ctx.stroke(new Path2D(strokePath(pts, W, H)));
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // Distance (in PDF points) from a point to the nearest stroke of a drawing.
+  function inkDistance(a, x, y, strokeIndex) {
+    const p = S.pages[a.page - 1];
+    const W = p.baseW;
+    const H = p.baseH;
+    const px = x * W;
+    const py = y * H;
+    let best = Infinity;
+    a.strokes.forEach((pts, si) => {
+      if (strokeIndex !== undefined && si !== strokeIndex) return;
+      for (let i = 0; i < pts.length; i += 2) {
+        const ax = pts[i] * W;
+        const ay = pts[i + 1] * H;
+        const bx = (i + 2 < pts.length ? pts[i + 2] : pts[i]) * W;
+        const by = (i + 2 < pts.length ? pts[i + 3] : pts[i + 1]) * H;
+        const dx = bx - ax;
+        const dy = by - ay;
+        const t = dx || dy ? clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy), 0, 1) : 0;
+        best = Math.min(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)));
+      }
+    });
+    return best;
+  }
+  const nearInk = (a, x, y, tol) => inkDistance(a, x, y) <= tol + (a.width * S.pages[a.page - 1].baseW) / 2;
+
+  function inkBounds(a) {
+    const p = S.pages[a.page - 1];
+    const padX = a.width / 2 + 0.004;
+    const padY = (a.width * p.baseW) / p.baseH / 2 + 0.004;
+    let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+    for (const pts of a.strokes) {
+      for (let i = 0; i < pts.length; i += 2) {
+        x0 = Math.min(x0, pts[i]); x1 = Math.max(x1, pts[i]);
+        y0 = Math.min(y0, pts[i + 1]); y1 = Math.max(y1, pts[i + 1]);
+      }
+    }
+    x0 = Math.max(0, x0 - padX); y0 = Math.max(0, y0 - padY);
+    x1 = Math.min(1, x1 + padX); y1 = Math.min(1, y1 + padY);
+    return [[+x0.toFixed(5), +y0.toFixed(5), +(x1 - x0).toFixed(5), +(y1 - y0).toFixed(5)]];
+  }
+
+  const snapshot = (a) => (a ? JSON.parse(JSON.stringify(a)) : null);
+
+  function afterInkChange(pages) {
+    scheduleSave();
+    for (const n of pages) renderHighlights(n);
+    if (pages.has(S.sbPage)) renderPagePanel();
+    if (S.tab === 'all') renderAllPanel();
+  }
+
+  function setDrawMode(on) {
+    if (on && !S.doc) return;
+    if (on && S.areaMode) setAreaMode(false);
+    D.on = on;
+    D.session = null;
+    D.live = null;
+    if (!on) D.undo = [];
+    document.body.classList.toggle('draw-mode', on);
+    $('#btnDraw').classList.toggle('active', on);
+    $('#btnDraw').setAttribute('aria-pressed', String(on));
+    drawBar.hidden = !on;
+    if (on) {
+      hideSelToolbar();
+      window.getSelection().removeAllRanges();
+      syncDrawBar();
+    }
+  }
+
+  function syncDrawBar() {
+    const t = D.tool === 'eraser' ? null : D.tool;
+    $$('.dtool', drawBar).forEach((b) => b.classList.toggle('active', b.dataset.tool === D.tool));
+    $$('.dcolor', drawBar).forEach((b) => {
+      b.classList.toggle('active', !!t && b.dataset.color === D.colors[t]);
+      b.disabled = !t;
+    });
+    $$('.dsize', drawBar).forEach((b) => {
+      b.classList.toggle('active', !!t && +b.dataset.size === D.sizes[t]);
+      b.disabled = !t;
+      b.classList.toggle('marker', D.tool === 'marker');
+    });
+    $('#drawUndo').disabled = !D.undo.length;
+    document.body.classList.toggle('erasing', D.tool === 'eraser');
+  }
+
+  function pagePoint(e, live) {
+    return {
+      x: clamp((e.clientX - live.rect.left) / live.rect.width, 0, 1),
+      y: clamp((e.clientY - live.rect.top) / live.rect.height, 0, 1),
+    };
+  }
+
+  function eraseAt(live, e) {
+    const pt = pagePoint(e, live);
+    const tol = (10 / live.rect.width) * live.p.baseW; // ~10 screen pixels, in PDF points
+    let changed = false;
+    for (let i = S.doc.annotations.length - 1; i >= 0; i--) {
+      const a = S.doc.annotations[i];
+      if (a.type !== 'ink' || a.page !== live.p.num) continue;
+      const half = (a.width * live.p.baseW) / 2;
+      const keep = a.strokes.filter((_, si) => inkDistance(a, pt.x, pt.y, si) > tol + half);
+      if (keep.length === a.strokes.length) continue;
+      if (!live.before.has(a.id)) live.before.set(a.id, snapshot(a));
+      changed = true;
+      if (keep.length) {
+        a.strokes = keep;
+        a.rects = inkBounds(a);
+      } else {
+        S.doc.annotations.splice(i, 1);
+        if (S.activeId === a.id) S.activeId = null;
+      }
+    }
+    if (changed) afterInkChange(new Set([live.p.num]));
+  }
+
+  function addLivePoint(e) {
+    const live = D.live;
+    if (Math.hypot(e.clientX - live.lastX, e.clientY - live.lastY) < 1.5) return;
+    live.lastX = e.clientX;
+    live.lastY = e.clientY;
+    const pt = pagePoint(e, live);
+    live.pts.push(+pt.x.toFixed(4), +pt.y.toFixed(4));
+  }
+
+  let inkRaf = 0;
+  function paintLive() {
+    inkRaf = 0;
+    const live = D.live;
+    if (live && live.path) live.path.setAttribute('d', strokePath(live.pts, live.p.baseW, live.p.baseH));
+  }
+
+  function finishStroke() {
+    const live = D.live;
+    D.live = null;
+    if (!live) return;
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 0);
+    if (live.tool === 'eraser') {
+      if (live.before.size) D.undo.push([...live.before].map(([id, before]) => ({ id, before })));
+      syncDrawBar();
+      return;
+    }
+    if (live.path) live.path.remove();
+    if (!live.pts.length) return;
+    const n = live.p.num;
+    const key = `${live.tool}|${live.color}|${live.width}`;
+    let a = D.session && D.session.page === n && D.session.key === key && S.doc.annotations.find((x) => x.id === D.session.id);
+    D.undo.push([{ id: a ? a.id : null, before: snapshot(a) }]);
+    if (a) {
+      a.strokes.push(live.pts);
+      a.updatedAt = Date.now();
+    } else {
+      a = { id: uid(), type: 'ink', page: n, tool: live.tool, color: live.color, width: live.width, strokes: [live.pts], text: '', note: '', createdAt: Date.now() };
+      S.doc.annotations.push(a);
+      D.undo[D.undo.length - 1][0].id = a.id;
+      D.session = { id: a.id, page: n, key };
+    }
+    a.rects = inkBounds(a);
+    afterInkChange(new Set([n]));
+    syncDrawBar();
+  }
+
+  function drawUndo() {
+    const entry = D.undo.pop();
+    if (!entry || !S.doc) return;
+    const pages = new Set();
+    for (const { id, before } of entry.slice().reverse()) {
+      const i = S.doc.annotations.findIndex((x) => x.id === id);
+      if (i >= 0) pages.add(S.doc.annotations[i].page);
+      if (!before) { if (i >= 0) S.doc.annotations.splice(i, 1); }
+      else if (i >= 0) S.doc.annotations[i] = before;
+      else S.doc.annotations.push(before);
+      if (before) pages.add(before.page);
+    }
+    D.session = null;
+    afterInkChange(pages);
+    syncDrawBar();
+  }
+
+  pagesEl.addEventListener('pointerdown', (e) => {
+    if (!D.on || !S.doc || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const pageDiv = e.target.closest('.page');
+    if (!pageDiv) return;
+    e.preventDefault();
+    const p = S.pages[+pageDiv.dataset.page - 1];
+    try { pageDiv.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    const tool = D.tool;
+    D.live = { p, pointerId: e.pointerId, tool, rect: pageDiv.getBoundingClientRect(), pts: [], lastX: -1e9, lastY: -1e9, before: new Map() };
+    if (tool === 'eraser') { eraseAt(D.live, e); return; }
+    D.live.color = D.colors[tool];
+    D.live.width = +(INK_SIZES[tool][D.sizes[tool]] / p.baseW).toFixed(5);
+    const path = document.createElementNS(SVGNS, 'path');
+    strokeStyle(path, D.live, p.baseW);
+    p.inkLayer.appendChild(path);
+    D.live.path = path;
+    addLivePoint(e);
+    paintLive();
+  });
+  pagesEl.addEventListener('pointermove', (e) => {
+    const live = D.live;
+    if (!live || e.pointerId !== live.pointerId) return;
+    live.rect = live.p.div.getBoundingClientRect();
+    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+    for (const ev of events.length ? events : [e]) {
+      if (live.tool === 'eraser') eraseAt(live, ev);
+      else addLivePoint(ev);
+    }
+    if (live.tool !== 'eraser' && !inkRaf) inkRaf = requestAnimationFrame(paintLive);
+  });
+  ['pointerup', 'pointercancel'].forEach((t) => pagesEl.addEventListener(t, (e) => {
+    if (D.live && e.pointerId === D.live.pointerId) finishStroke();
+  }));
+
+  $('#btnDraw').addEventListener('click', () => setDrawMode(!D.on));
+  $('#drawDone').addEventListener('click', () => setDrawMode(false));
+  $('#drawUndo').addEventListener('click', drawUndo);
+  $$('.dtool', drawBar).forEach((b) => b.addEventListener('click', () => { D.tool = b.dataset.tool; D.session = null; saveDrawPrefs(); syncDrawBar(); }));
+  $$('.dcolor', drawBar).forEach((b) => b.addEventListener('click', () => {
+    if (D.tool === 'eraser') return;
+    D.colors[D.tool] = b.dataset.color;
+    D.session = null;
+    saveDrawPrefs();
+    syncDrawBar();
+  }));
+  $$('.dsize', drawBar).forEach((b) => b.addEventListener('click', () => {
+    if (D.tool === 'eraser') return;
+    D.sizes[D.tool] = +b.dataset.size;
+    D.session = null;
+    saveDrawPrefs();
+    syncDrawBar();
+  }));
 
   // ------------------------------------------------------------------ search in the slides
   // The browser's own Ctrl+F only sees pages that are rendered, so search the PDF text directly.
@@ -1679,7 +2001,12 @@
     const key = a.id + JSON.stringify(a.rects[0]);
     if (ST.crops.has(key)) return ST.crops.get(key);
     const p = S.pages[a.page - 1];
-    const [x, y, w, h] = a.rects[0];
+    let [x, y, w, h] = a.rects[0];
+    if (a.type === 'ink') { // a little context around a drawing
+      const m = 0.04;
+      x = Math.max(0, x - m); y = Math.max(0, y - m);
+      w = Math.min(1 - x, w + 2 * m); h = Math.min(1 - y, h + 2 * m);
+    }
     const scale = clamp(900 / Math.max(1, w * p.baseW), 0.5, 4);
     const vp = p.page.getViewport({ scale });
     const c = document.createElement('canvas');
@@ -1689,6 +2016,10 @@
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, c.width, c.height);
     await p.page.render({ canvasContext: ctx, viewport: vp, transform: [1, 0, 0, 1, -x * vp.width, -y * vp.height] }).promise;
+    if (a.type === 'ink') {
+      ctx.setTransform(scale, 0, 0, scale, -x * vp.width, -y * vp.height);
+      drawInkOnCanvas(ctx, a, p.baseW, p.baseH);
+    }
     const url = c.toDataURL('image/png');
     ST.crops.set(key, url);
     return url;
@@ -1700,11 +2031,11 @@
       box.appendChild(el('div', 'face-note', a.note.trim()));
       return;
     }
-    if (a.type === 'area') {
+    if (a.type === 'area' || a.type === 'ink') {
       const img = el('img', 'face-img');
       img.alt = 'Area on page ' + a.page;
       box.appendChild(img);
-      cropArea(a).then((url) => { img.src = url; }).catch(() => { img.replaceWith(el('div', 'face-quote', '▭ Area on page ' + a.page)); });
+      cropArea(a).then((url) => { img.src = url; }).catch(() => { img.replaceWith(el('div', 'face-quote', annotLabel(a))); });
     } else {
       box.appendChild(el('div', 'face-quote', `“${a.text}”`));
     }
@@ -1774,7 +2105,7 @@
     const deck = baseName(d.name).replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || 'lecture';
     const lines = ['#separator:tab', '#html:true', '#tags column:3'];
     for (const a of list) {
-      const front = (a.text ? esc(a.text) : `<i>Area on page ${a.page}</i>`) + `<br><small>${esc(baseName(d.name))}, page ${a.page}</small>`;
+      const front = (a.text ? esc(a.text) : `<i>${a.type === 'ink' ? 'Drawing' : 'Area'} on page ${a.page}</i>`) + `<br><small>${esc(baseName(d.name))}, page ${a.page}</small>`;
       const tags = [`uni-pdf::${deck}`, `page_${a.page}`].concat(onExamPage(a) ? ['exam'] : []).join(' ');
       lines.push(`${front}\t${esc(a.note.trim())}\t${tags}`);
     }
@@ -1944,7 +2275,7 @@
       lines.push(`## Page ${n}${flagIcons(flags)}`, '');
       if (pn) lines.push(pn, '');
       for (const a of annots) {
-        lines.push(a.text ? `> ${a.text}` : '> _(area highlight)_');
+        lines.push(a.text ? `> ${a.text}` : a.type === 'ink' ? '> _(drawing)_' : '> _(area highlight)_');
         if (a.note && a.note.trim()) lines.push('', a.note.trim().split('\n').map((l) => '  ' + l).join('\n').replace(/^ {2}/, '- '));
         lines.push('');
       }
@@ -2093,6 +2424,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (S.areaMode) setAreaMode(false);
+      if (D.on && !isTyping(e.target)) setDrawMode(false);
       hideSelToolbar();
       setMenu(false);
       if (!findBar.hidden && !isTyping(e.target)) closeFind();
@@ -2102,6 +2434,11 @@
     if (readerOpen && F.matches.length && (e.key === 'F3' || ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')))) {
       e.preventDefault();
       showMatch(F.idx + (e.shiftKey ? -1 : 1));
+      return;
+    }
+    if (readerOpen && D.on && (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z') && !isTyping(e.target)) {
+      e.preventDefault();
+      drawUndo();
       return;
     }
     if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || helpDialog.open || studyDialog.open) return;
@@ -2122,6 +2459,7 @@
     }
     else if (k === 'p' || k === 'P') { e.preventDefault(); showSidebar(); switchTab('page'); $('#pageNote').focus(); }
     else if (k === 'a' || k === 'A') setAreaMode(!S.areaMode);
+    else if (k === 'd' || k === 'D') setDrawMode(!D.on);
     else if (k === '\\') $('#btnSidebar').click();
     else if (k === 'l' || k === 'L') showLibrary();
     else if (k === 't' || k === 'T') setThumbsOpen(thumbsEl.hidden);

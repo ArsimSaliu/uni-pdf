@@ -17,6 +17,28 @@
     blue: [0.2, 0.5, 0.9],
     pink: [0.88, 0.3, 0.6],
   };
+  // Drawing colours (match INK_COLORS in app.js) and the same smoothing as the on-screen strokes.
+  const INK = {
+    black: [0.12, 0.14, 0.16],
+    red: [0.88, 0.19, 0.19],
+    blue: [0.18, 0.44, 0.87],
+    green: [0.17, 0.6, 0.29],
+    yellow: [0.96, 0.77, 0.0],
+  };
+  function strokePath(pts, W, H) {
+    const n = pts.length / 2;
+    const X = (i) => (pts[2 * i] * W).toFixed(2);
+    const Y = (i) => (pts[2 * i + 1] * H).toFixed(2);
+    if (n === 1) return `M${X(0)} ${Y(0)} L${(pts[0] * W + 0.01).toFixed(2)} ${Y(0)}`;
+    let d = `M${X(0)} ${Y(0)}`;
+    if (n === 2) return d + ` L${X(1)} ${Y(1)}`;
+    for (let i = 1; i < n - 1; i++) {
+      const mx = (((pts[2 * i] + pts[2 * i + 2]) / 2) * W).toFixed(2);
+      const my = (((pts[2 * i + 1] + pts[2 * i + 3]) / 2) * H).toFixed(2);
+      d += ` Q${X(i)} ${Y(i)} ${mx} ${my}`;
+    }
+    return d + ` L${X(n - 1)} ${Y(n - 1)}`;
+  }
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const b64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
@@ -59,7 +81,7 @@
   const EMBED_JSON = 'lecture-notes.json';
 
   async function build(bytes, doc, opts = {}) {
-    const { PDFDocument, rgb, degrees, BlendMode } = window.PDFLib;
+    const { PDFDocument, rgb, degrees, BlendMode, LineCapStyle } = window.PDFLib;
     const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
     const out = await PDFDocument.create();
     out.registerFontkit(window.fontkit);
@@ -115,7 +137,21 @@
       // Highlights + numbered badges on the page.
       annots.forEach((a) => {
         const c = HL[a.color] || HL.yellow;
-        for (const [x, y, rw, rh] of a.rects) {
+        if (a.type === 'ink') {
+          // Drawings: vector strokes, drawn with SVG-style coordinates from the top-left corner.
+          for (const pts of a.strokes || []) {
+            page.drawSvgPath(strokePath(pts, W, H), {
+              x: 0,
+              y: H,
+              borderColor: rgb(...(INK[a.color] || INK.black)),
+              borderWidth: a.width * W,
+              borderLineCap: LineCapStyle.Round,
+              borderOpacity: a.tool === 'marker' ? 0.4 : 1,
+              blendMode: a.tool === 'marker' ? BlendMode.Multiply : BlendMode.Normal,
+            });
+          }
+        }
+        for (const [x, y, rw, rh] of a.type === 'ink' ? [] : a.rects) {
           const r = { x: x * W, y: H - (y + rh) * H, width: rw * W, height: rh * H };
           if (a.type === 'area') {
             page.drawRectangle({ ...r, borderColor: rgb(...(SOLID[a.color] || SOLID.blue)), borderWidth: 1.5, color: rgb(...c), opacity: 0.08 });
@@ -152,7 +188,7 @@
       noted.forEach((a, idx) => {
         const br = fs * 0.62;
         const indent = br * 2 + fs * 0.5;
-        const quote = a.text ? `“${a.text}”` : 'Area highlight';
+        const quote = a.text ? `“${a.text}”` : a.type === 'ink' ? 'Drawing' : 'Area highlight';
         const qs = fs * 0.88;
         const qLines = clampLines(wrap(quote, font, qs, textW - indent), 4, font, qs, textW - indent);
         const nLines = wrap(a.note.trim(), font, fs, textW - indent);
@@ -237,7 +273,7 @@
     }
 
     function drawBadge(pg, cx, cy, r, n, color) {
-      pg.drawCircle({ x: cx, y: cy, size: r, color: rgb(...(SOLID[color] || SOLID.yellow)) });
+      pg.drawCircle({ x: cx, y: cy, size: r, color: rgb(...(SOLID[color] || INK[color] || SOLID.yellow)) });
       const s = r * 1.15;
       const t = String(n);
       pg.drawText(t, { x: cx - bold.widthOfTextAtSize(t, s) / 2, y: cy - s * 0.36, size: s, font: bold, color: rgb(1, 1, 1) });

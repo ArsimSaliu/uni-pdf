@@ -34,6 +34,7 @@ In a lecture you have the slides in one window and your notes in another, and af
 
 - **Notes anchored to text.** Select a sentence, press <kbd>N</kbd>, and type. Hover the highlight later to read the note.
 - **Area notes** for diagrams, formulas and images (<kbd>A</kbd>, or <kbd>Alt</kbd> + drag).
+- **Draw on slides** with a pen or highlighter (<kbd>D</kbd>), using a mouse, a touchscreen or a stylus.
 - **A notes field for each slide**, plus general notes for the whole lecture.
 - **Search the slides** (`Ctrl+F`) and **search every note**, in one lecture or across your whole library.
 - **Study mode:** your highlights and notes become flashcards with spaced repetition, and you can export them to **Anki**.
@@ -66,6 +67,7 @@ In a lecture you have the slides in one window and your notes in another, and af
 | Note on a word/sentence | Select the text → **✎ Note** (or press <kbd>N</kbd>) |
 | Highlight only | Select the text → click a colour (or press <kbd>H</kbd>) |
 | Note on a diagram/image | **▭ Area** (or <kbd>A</kbd>, or hold <kbd>Alt</kbd> while dragging) and drag a box |
+| Draw on the slide | **✏ Draw** or <kbd>D</kbd>: pen, highlighter, eraser, 5 colours, 3 sizes. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Esc</kbd> done. Click a drawing afterwards to add a note |
 | Note for the whole page/slide | Press <kbd>P</kbd> or type in *Notes for this page* |
 | General notes for the lecture | **Lecture notes** tab |
 | See/search everything | **All notes** tab |

@@ -7,6 +7,7 @@ All notable changes to uni-pdf. Versions follow [semantic versioning](https://se
 The study release: features for revising, not just reading.
 
 ### Added
+- **Drawing mode** (`D` or **✏ Draw**): draw on slides with a pen or highlighter in five colours and three sizes, erase strokes, and undo with `Ctrl+Z`. Works with a mouse, a touchscreen or a stylus. Drawings stay sharp at every zoom level, can get a note like any highlight, become flashcards, and are exported as vector lines in the PDF.
 - **Study mode (flashcards):** every highlight or area with a note becomes a card. Reveal the answer, grade it (Again / Good / Easy), and spaced repetition schedules the next review. Diagram cards show the boxed part of the slide. Open it with **🎓 Study** or `S`.
 - **Flashcards for Anki:** *Export → Flashcards for Anki* saves a file that Anki imports directly, tagged by lecture and page.
 - **Search in the slides** (`Ctrl+F`): finds text on every page, including ones that aren't rendered yet, highlights all matches, and steps through them with `Enter` / `Shift+Enter`.

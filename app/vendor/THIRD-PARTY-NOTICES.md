@@ -7,6 +7,8 @@ uni-pdf itself is released into the public domain (see `LICENSE` in the reposito
 | [pdf.js](https://github.com/mozilla/pdf.js) 3.11.174, © Mozilla Foundation | `pdf.min.js`, `pdf.worker.min.js` | Apache-2.0 | `PDFJS-LICENSE` |
 | [pdf-lib](https://github.com/Hopding/pdf-lib) 1.17.1, © 2019 Andrew Dillon | `pdf-lib.min.js` | MIT | `PDF-LIB-LICENSE.md` |
 | [@pdf-lib/fontkit](https://github.com/Hopding/fontkit) (fork of [fontkit](https://github.com/foliojs/fontkit), © 2014 Devon Govett) | `fontkit.umd.min.js` | MIT | below |
+| [Inter](https://rsms.me/inter/) variable font, © 2016 The Inter Project Authors | `fonts/inter-*.woff2` | SIL Open Font License 1.1 | `INTER-LICENSE.txt` |
+| [Lucide](https://lucide.dev) icons, © Lucide Icons and Contributors | inline in `../index.html` | ISC | `LUCIDE-LICENSE.txt` |
 | [DejaVu Sans](https://dejavu-fonts.github.io/) fonts (based on Bitstream Vera, © 2003 Bitstream, Inc.; Arev glyphs © 2006 Tavmjong Bah) | `dejavu-fonts.js` | Bitstream Vera / Arev font licence; DejaVu changes public domain | `DEJAVU-LICENSE` |
 
 The two minified bundles also contain smaller libraries that were compiled into them, all under permissive licences:

@@ -26,6 +26,50 @@
     return n;
   };
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  // <svg class="ic"><use href="#i-name"/></svg> from the inline Lucide sprite in index.html
+  const icon = (name, cls) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'ic' + (cls ? ' ' + cls : ''));
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#i-' + name);
+    svg.appendChild(use);
+    return svg;
+  };
+
+  // Styled replacement for confirm()/prompt(). Resolves true/false, or the text (or null) with opts.input.
+  function ask(opts) {
+    const dlg = $('#askDialog');
+    $('#askTitle').textContent = opts.title || '';
+    $('#askBody').textContent = opts.body || '';
+    $('#askBody').hidden = !opts.body;
+    const ok = $('#askOk');
+    const cancel = $('#askCancel');
+    ok.textContent = opts.ok || 'OK';
+    cancel.textContent = opts.cancel || 'Cancel';
+    ok.classList.toggle('danger', !!opts.danger);
+    const input = $('#askInput');
+    input.hidden = !opts.input;
+    const list = $('#askList');
+    list.textContent = '';
+    if (opts.input) {
+      input.value = opts.input.value || '';
+      input.placeholder = opts.input.placeholder || '';
+      for (const v of opts.input.list || []) { const o = document.createElement('option'); o.value = v; list.appendChild(o); }
+    }
+    return new Promise((resolve) => {
+      const done = () => {
+        dlg.removeEventListener('close', done);
+        const yes = dlg.returnValue === 'ok';
+        resolve(opts.input ? (yes ? input.value.trim() : null) : yes);
+      };
+      dlg.returnValue = '';
+      dlg.addEventListener('close', done);
+      dlg.showModal();
+      (opts.input ? input : ok).focus();
+      if (opts.input) input.select();
+    });
+  }
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const isTyping = (t) => t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'button') || t.isContentEditable);
   const fmtTime = (ts) => new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -231,8 +275,12 @@
     if (same) { toast('Opened your editable PDF. Notes are up to date.', 3000); return; }
     if (hasNotes(rec)) {
       const when = notes.exportedAt ? new Date(notes.exportedAt).toLocaleString() : 'earlier';
-      const ok = confirm(`This PDF contains notes saved ${when}, but this lecture already has different notes here.\n\n`
-        + 'OK: use the notes from the PDF (replaces the ones in the app)\nCancel: keep the notes already in the app');
+      const ok = await ask({
+        title: 'Which notes do you want to keep?',
+        body: `This PDF contains notes saved ${when}, but this lecture already has different notes in uni-pdf.`,
+        ok: 'Use the notes from the PDF',
+        cancel: 'Keep the notes in the app',
+      });
       if (!ok) return;
     }
     rec.docNote = notes.docNote || '';
@@ -324,6 +372,7 @@
     S.pages.forEach((p) => { renderHighlights(p.num); io.observe(p.div); });
     if (!$('#findBar').hidden && $('#findInput').value.trim()) runFind();
 
+    if (!rec.thumb) makeLibThumb(S.pages[0], rec);
     const start = clamp(opts.page || rec.lastPage || 1, 1, pdf.numPages);
     S.currentPage = 0;
     S.sbPage = 0;
@@ -371,46 +420,158 @@
 
   function drawLibrary() {
     const docs = libDocs;
-    const list = $('#libList');
-    list.textContent = '';
+    const groupsEl = $('#libGroups');
+    groupsEl.textContent = '';
+    document.body.classList.toggle('no-lectures', !docs.length);
     $('#libEmpty').hidden = docs.length > 0;
     $('#libTools').hidden = !docs.length;
-    $('#libSearch').hidden = !docs.length;
+    $('#libBar').hidden = !docs.length;
+
+    const courses = [...new Set(docs.map((d) => (d.course || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    if (S.libCourse && !courses.includes(S.libCourse)) S.libCourse = '';
+    const chips = $('#courseChips');
+    chips.textContent = '';
+    if (courses.length) {
+      for (const c of [''].concat(courses)) {
+        const b = el('button', 'chip' + (c === (S.libCourse || '') ? ' active' : ''));
+        if (c) b.appendChild(icon('folder'));
+        b.appendChild(document.createTextNode(c || 'All courses'));
+        b.addEventListener('click', () => { S.libCourse = c; drawLibrary(); });
+        chips.appendChild(b);
+      }
+    }
+
     const q = $('#libSearch').value.trim().toLowerCase();
     const hitDocs = drawLibHits(q);
-    for (const d of docs) {
-      if (q && !d.name.toLowerCase().includes(q) && !hitDocs.has(d.id)) continue;
-      const li = el('li', 'lib-item');
-      const main = el('div', 'lib-main');
-      main.appendChild(el('div', 'lib-name', baseName(d.name)));
-      const nAnn = (d.annotations || []).length;
-      const nPageNotes = Object.values(d.pageNotes || {}).filter((v) => v && v.trim()).length;
-      const bits = [];
-      if (d.numPages) bits.push(d.numPages + ' pages');
-      bits.push(nAnn + ' highlight' + (nAnn === 1 ? '' : 's'));
-      bits.push(nPageNotes + ' page note' + (nPageNotes === 1 ? '' : 's'));
-      const nExam = Object.values(d.pageFlags || {}).filter((f) => f.exam).length;
-      const nAsk = Object.values(d.pageFlags || {}).filter((f) => f.ask).length;
-      if (nExam) bits.push('⭐ ' + nExam);
-      if (nAsk) bits.push('❓ ' + nAsk);
-      const nDue = (d.annotations || []).filter((a) => a.note && a.note.trim() && (!a.srs || a.srs.due <= Date.now())).length;
-      if (nDue) bits.push('🎓 ' + nDue + ' to review');
-      bits.push('opened ' + fmtDate(d.lastOpened || d.addedAt));
-      main.appendChild(el('div', 'lib-meta', bits.join(' · ')));
-      li.appendChild(main);
-      const del = el('button', 'lib-del', '🗑');
-      del.title = 'Remove from library (deletes its notes too)';
-      del.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!confirm(`Remove "${d.name}" and all of its notes from this browser?\n\nTip: use Export → Backup first if you want to keep the notes.`)) return;
-        if (S.doc && S.doc.id === d.id) { clearTimeout(saveTimer); await closeDoc(); }
-        await DB.del('docs', d.id);
-        await DB.del('files', d.id);
-        renderLibrary();
+    const shown = docs.filter((d) => (!q || d.name.toLowerCase().includes(q) || hitDocs.has(d.id))
+      && (!S.libCourse || (d.course || '').trim() === S.libCourse));
+    // Group by course; lectures without a course go last.
+    const groups = new Map();
+    for (const d of shown) {
+      const c = (d.course || '').trim();
+      if (!groups.has(c)) groups.set(c, []);
+      groups.get(c).push(d);
+    }
+    const keys = [...groups.keys()].sort((a, b) => (!a) - (!b) || a.localeCompare(b));
+    for (const c of keys) {
+      const sec = el('section', 'lib-group');
+      if (courses.length) {
+        const h = el('h2', 'lib-group-head');
+        h.appendChild(icon(c ? 'folder' : 'file-text'));
+        h.appendChild(document.createTextNode(c || 'Other lectures'));
+        h.appendChild(el('span', 'n', String(groups.get(c).length)));
+        sec.appendChild(h);
+      }
+      const ul = el('ul', 'lib-list');
+      for (const d of groups.get(c)) ul.appendChild(libCard(d, courses));
+      sec.appendChild(ul);
+      groupsEl.appendChild(sec);
+    }
+  }
+
+  function libCard(d, courses) {
+    const li = el('li', 'lib-item');
+    li.tabIndex = 0;
+    const thumb = el('div', 'lib-thumb');
+    if (d.thumb) { const img = el('img'); img.src = d.thumb; img.alt = ''; img.loading = 'lazy'; thumb.appendChild(img); }
+    else thumb.appendChild(icon('file-text'));
+    li.appendChild(thumb);
+    const prog = el('div', 'lib-progress');
+    const bar = el('i');
+    bar.style.width = (d.numPages ? Math.round((clamp(d.lastPage || 1, 1, d.numPages) / d.numPages) * 100) : 0) + '%';
+    prog.appendChild(bar);
+    prog.title = d.numPages ? `Page ${d.lastPage || 1} of ${d.numPages}` : '';
+    li.appendChild(prog);
+
+    const body = el('div', 'lib-body');
+    body.appendChild(el('div', 'lib-name', baseName(d.name)));
+    const nAnn = (d.annotations || []).length;
+    const bits = [];
+    if (d.numPages) bits.push(d.numPages + ' pages');
+    bits.push(nAnn + ' note' + (nAnn === 1 ? '' : 's'));
+    bits.push('opened ' + fmtDate(d.lastOpened || d.addedAt));
+    body.appendChild(el('div', 'lib-meta', bits.join(' · ')));
+    const badges = el('div', 'lib-badges');
+    const badge = (cls, ic, text, title) => {
+      const b = el('span', 'badge ' + cls);
+      b.appendChild(icon(ic));
+      b.appendChild(document.createTextNode(text));
+      b.title = title;
+      badges.appendChild(b);
+    };
+    const flags = Object.values(d.pageFlags || {});
+    const nExam = flags.filter((f) => f.exam).length;
+    const nAsk = flags.filter((f) => f.ask).length;
+    const nDue = (d.annotations || []).filter((a) => a.note && a.note.trim() && (!a.srs || a.srs.due <= Date.now())).length;
+    if (nDue) badge('due', 'graduation-cap', nDue + ' to review', 'Flashcards due for review');
+    if (nExam) badge('exam', 'star', String(nExam), 'Exam-relevant pages');
+    if (nAsk) badge('ask', 'message-circle-question-mark', String(nAsk), 'Pages with a question to ask');
+    if (badges.childNodes.length) body.appendChild(badges);
+    li.appendChild(body);
+
+    const actions = el('div', 'lib-card-actions');
+    const courseBtn = el('button', 'lib-course');
+    courseBtn.title = d.course ? `Course: ${d.course} (change)` : 'Add to a course';
+    courseBtn.setAttribute('aria-label', courseBtn.title);
+    courseBtn.appendChild(icon('folder'));
+    courseBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const v = await ask({
+        title: 'Course',
+        body: 'Group lectures by course, e.g. "Operating Systems". Leave it empty to remove the course.',
+        ok: 'Save',
+        input: { value: d.course || '', placeholder: 'Course name', list: courses },
       });
-      li.appendChild(del);
-      li.addEventListener('click', () => openDoc(d.id));
-      list.appendChild(li);
+      if (v === null) return;
+      const rec = await DB.get('docs', d.id);
+      if (!rec) return;
+      rec.course = v;
+      if (S.doc && S.doc.id === d.id) S.doc.course = v;
+      await DB.put('docs', rec);
+      renderLibrary();
+    });
+    const del = el('button', 'lib-del');
+    del.title = 'Remove from library';
+    del.setAttribute('aria-label', 'Remove from library');
+    del.appendChild(icon('trash-2'));
+    del.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const yes = await ask({
+        title: `Remove "${baseName(d.name)}"?`,
+        body: 'The PDF and all of its notes will be deleted from this browser. Tip: use Export → Back up first if you want to keep the notes.',
+        ok: 'Remove',
+        danger: true,
+      });
+      if (!yes) return;
+      if (S.doc && S.doc.id === d.id) { clearTimeout(saveTimer); await closeDoc(); }
+      await DB.del('docs', d.id);
+      await DB.del('files', d.id);
+      renderLibrary();
+    });
+    actions.append(courseBtn, del);
+    li.appendChild(actions);
+    li.addEventListener('click', () => openDoc(d.id));
+    li.addEventListener('keydown', (e) => { if (e.key === 'Enter') openDoc(d.id); });
+    return li;
+  }
+
+  // Small preview of page 1 for the library card, made once per lecture.
+  async function makeLibThumb(p, rec) {
+    try {
+      const scale = 360 / p.baseW;
+      const vp = p.page.getViewport({ scale });
+      const c = document.createElement('canvas');
+      c.width = Math.round(vp.width);
+      c.height = Math.round(vp.height);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      await p.page.render({ canvasContext: ctx, viewport: vp }).promise;
+      if (S.doc !== rec) return;
+      rec.thumb = c.toDataURL('image/jpeg', 0.78);
+      scheduleSave();
+    } catch (err) {
+      console.warn('No library preview', err);
     }
   }
 
@@ -623,6 +784,7 @@
       });
     }
     renderInk(p);
+    updateAllCount();
   }
 
   function normPoint(e, pageDiv) {
@@ -926,11 +1088,19 @@
     return true;
   }
 
+  function syncTools() {
+    const tool = S.areaMode ? 'area' : (typeof D !== 'undefined' && D.on) ? 'draw' : 'select';
+    for (const [id, t] of [['#btnSelect', 'select'], ['#btnArea', 'area'], ['#btnDraw', 'draw']]) {
+      $(id).classList.toggle('active', tool === t);
+      $(id).setAttribute('aria-pressed', String(tool === t));
+    }
+  }
+
   function setAreaMode(on) {
     if (on && D.on) setDrawMode(false);
     S.areaMode = on;
     document.body.classList.toggle('area-mode', on);
-    $('#btnArea').classList.toggle('active', on);
+    syncTools();
     if (on) toast('Area mode: drag a box over a diagram, formula or image. Esc to cancel.', 4000);
     else if (!$('#toast').hidden && $('#toastMsg').textContent.startsWith('Area mode')) $('#toast').hidden = true;
   }
@@ -1070,6 +1240,20 @@
   selToolbar.addEventListener('mousedown', (e) => e.preventDefault());
   $$('.swatch', selToolbar).forEach((b) => b.addEventListener('click', () => createFromSelection(b.dataset.color, false)));
   $('#selNote').addEventListener('click', () => createFromSelection(S.lastColor || 'yellow', true));
+  const selectionText = () => (S.pendingRange ? S.pendingRange.toString() : '').replace(/\s+/g, ' ').trim();
+  $('#selCopy').addEventListener('click', async () => {
+    const t = selectionText();
+    if (!t) return;
+    try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch (_) { toast('Copying is not allowed here. Use Ctrl+C.'); }
+  });
+  $('#selFind').addEventListener('click', () => {
+    const t = selectionText();
+    hideSelToolbar();
+    window.getSelection().removeAllRanges();
+    findInput.value = t.slice(0, 80);
+    openFind();
+    runFind();
+  });
 
   viewer.addEventListener('wheel', (e) => {
     if (!e.ctrlKey || !S.pages.length) return;
@@ -1197,6 +1381,12 @@
     parent.appendChild(document.createTextNode(text.slice(i)));
   }
 
+  function updateAllCount() {
+    if (!S.doc) return;
+    const n = S.doc.annotations.length + Object.values(S.doc.pageNotes).filter((v) => v && v.trim()).length;
+    $('#allCount').textContent = n ? String(n) : '';
+  }
+
   function renderAllPanel() {
     if (!S.doc) return;
     const q = $('#searchInput').value.trim().toLowerCase();
@@ -1214,7 +1404,9 @@
       if (!showPN && !annots.length && !flaggedOnly) continue;
       any = true;
       const g = el('div', 'all-group');
-      const h = el('h4', null, 'Page ' + n + flagIcons(flags));
+      const h = el('h4', null, 'Page ' + n);
+      if (flags.exam) h.appendChild(icon('star', 'flag-ic exam'));
+      if (flags.ask) h.appendChild(icon('message-circle-question-mark', 'flag-ic ask'));
       h.addEventListener('click', () => { goToPage(n); });
       g.appendChild(h);
       if (showPN) {
@@ -1240,8 +1432,8 @@
     }
     if (!any) {
       const msg = q ? 'Nothing matches your search.'
-        : S.allFilter === 'exam' ? 'No pages marked ⭐ exam-relevant yet. Press E on a slide to mark it.'
-          : S.allFilter === 'ask' ? 'No pages marked ❓ yet. Press Q on a slide when something is unclear.'
+        : S.allFilter === 'exam' ? 'No pages marked as exam-relevant yet. Press E on a slide to mark it.'
+          : S.allFilter === 'ask' ? 'No questions marked yet. Press Q on a slide when something is unclear.'
             : 'No notes yet. Notes and highlights for every page will appear here.';
       list.appendChild(el('p', 'muted small', msg));
     }
@@ -1315,8 +1507,8 @@
     if (S.tab === 'all') renderAllPanel();
     const on = !!f[kind];
     toast(kind === 'exam'
-      ? (on ? `Page ${n} marked ⭐ exam-relevant.` : `Page ${n}: exam mark removed.`)
-      : (on ? `Page ${n} marked ❓: you have a question about it.` : `Page ${n}: question mark removed.`));
+      ? (on ? `Page ${n} marked as exam-relevant.` : `Page ${n}: exam mark removed.`)
+      : (on ? `Page ${n} marked: you have a question about it.` : `Page ${n}: question mark removed.`));
   }
 
   // ------------------------------------------------------------------ thumbnails & outline
@@ -1390,7 +1582,12 @@
     const p = S.pages[n - 1];
     if (!p || !p.thumb || !S.doc) return;
     const notes = S.doc.annotations.filter((a) => a.page === n).length + ((S.doc.pageNotes[n] || '').trim() ? 1 : 0);
-    $('.thumb-badges', p.thumb).textContent = flagIcons(S.doc.pageFlags[n]).trim() + (notes ? ` ✎${notes}` : '');
+    const b = $('.thumb-badges', p.thumb);
+    b.textContent = '';
+    const f = S.doc.pageFlags[n] || {};
+    if (f.exam) b.appendChild(icon('star', 'flag-ic exam'));
+    if (f.ask) b.appendChild(icon('message-circle-question-mark', 'flag-ic ask'));
+    if (notes) { b.appendChild(icon('sticky-note')); b.appendChild(document.createTextNode(String(notes))); }
   }
 
   function markCurrentThumb() {
@@ -1587,8 +1784,7 @@
     D.live = null;
     if (!on) D.undo = [];
     document.body.classList.toggle('draw-mode', on);
-    $('#btnDraw').classList.toggle('active', on);
-    $('#btnDraw').setAttribute('aria-pressed', String(on));
+    syncTools();
     drawBar.hidden = !on;
     if (on) {
       hideSelToolbar();
@@ -1962,7 +2158,7 @@
     const due = all.filter(isDue).length;
     const exam = all.filter(onExamPage).length;
     $('#studySummary').textContent = all.length
-      ? `${plural(all.length, 'card')} in this lecture · ${due} due for review${exam ? ` · ${exam} on ⭐ exam pages` : ''}`
+      ? `${plural(all.length, 'card')} in this lecture · ${due} due for review${exam ? ` · ${exam} on exam pages` : ''}`
       : 'No cards yet. Highlight something on a slide and write a note about it, and it becomes a flashcard.';
     $('#studyOptions').hidden = !all.length;
     $('#studyScope').value = due ? 'due' : 'all';
@@ -1987,7 +2183,7 @@
     if (scope === 'due') list = list.filter(isDue);
     if (scope === 'exam') list = list.filter(onExamPage);
     if (!list.length) {
-      toast(scope === 'due' ? 'Nothing is due right now. Choose "All cards" to practise anyway.' : 'No cards on ⭐ exam pages yet.', 4000);
+      toast(scope === 'due' ? 'Nothing is due right now. Choose "All cards" to practise anyway.' : 'No cards on exam pages yet.', 4000);
       return;
     }
     ST.queue = shuffle(list.slice());
@@ -2048,7 +2244,7 @@
     ST.shown = false;
     showStudyPane('card');
     $('#studyProgress').textContent = `${ST.queue.length + 1} left`;
-    $('#cardWhere').textContent = 'Page ' + a.page + (onExamPage(a) ? ' · ⭐ exam' : '');
+    $('#cardWhere').textContent = 'Page ' + a.page + (onExamPage(a) ? ' · exam page' : '');
     fillFace($('#cardFront'), a, ST.dir === 'hl' ? 'hl' : 'note');
     fillFace($('#cardBack'), a, ST.dir === 'hl' ? 'note' : 'hl');
     $('#cardBack').hidden = true;
@@ -2091,7 +2287,7 @@
       const days = Math.max(1, Math.round((Math.min(...future) - Date.now()) / DAY));
       when = days === 1 ? ' Next review: tomorrow.' : ` Next review: in ${days} days.`;
     }
-    $('#studyDoneText').textContent = `🎉 Done! You reviewed ${plural(ST.reviewed, 'card')}`
+    $('#studyDoneText').textContent = `Done! You reviewed ${plural(ST.reviewed, 'card')}`
       + (ST.again ? ` (${ST.again} needed another try)` : '') + '.' + when;
     $('#studyFinish').focus();
   }
@@ -2213,8 +2409,12 @@
       const conflicts = data.docs.filter(({ rec }) => rec && existing.has(rec.id) && notesOf(existing.get(rec.id)) !== notesOf(rec));
       let replace = true;
       if (conflicts.length) {
-        replace = confirm(`${plural(conflicts.length, 'lecture')} in the backup ${conflicts.length === 1 ? 'is' : 'are'} already in your library with different notes.\n\n`
-          + 'OK: replace them with the notes from the backup\nCancel: keep your current notes (only add missing lectures)');
+        replace = await ask({
+          title: 'Some lectures are already here',
+          body: `${plural(conflicts.length, 'lecture')} in the backup ${conflicts.length === 1 ? 'is' : 'are'} already in your library with different notes.`,
+          ok: 'Use the notes from the backup',
+          cancel: 'Keep my current notes',
+        });
       }
       if (S.doc) { clearTimeout(saveTimer); saveTimer = null; await closeDoc(); }
       let added = 0;
@@ -2258,6 +2458,146 @@
     $$('.chip[data-filter]').forEach((x) => x.classList.toggle('active', x === c));
     renderAllPanel();
   }));
+
+  // ------------------------------------------------------------------ command palette (Ctrl+K)
+  const cmdk = $('#cmdk');
+  const cmdkInput = $('#cmdkInput');
+  const cmdkList = $('#cmdkList');
+  let cmdItems = [];
+  let cmdSel = 0;
+
+  function commands() {
+    const inDoc = !!S.doc && !$('#reader').hidden;
+    const c = [];
+    const add = (group, ic, title, run, hint, when = true) => { if (when) c.push({ group, ic, title, run, hint }); };
+    add('Actions', 'file-plus', 'Open a PDF…', () => $('#fileInput').click(), 'O');
+    add('Actions', 'search', 'Search in the slides', openFind, 'Ctrl F', inDoc);
+    add('Actions', 'graduation-cap', 'Study flashcards', openStudy, 'S', inDoc);
+    add('Actions', 'pencil', 'Draw', () => setDrawMode(true), 'D', inDoc);
+    add('Actions', 'square-dashed', 'Area note', () => setAreaMode(true), 'A', inDoc);
+    add('Actions', 'sticky-note', 'Write a note for this page', () => { showSidebar(); switchTab('page'); $('#pageNote').focus(); }, 'P', inDoc);
+    add('Actions', 'star', 'Mark page as exam-relevant', () => toggleFlag('exam'), 'E', inDoc);
+    add('Actions', 'message-circle-question-mark', 'Mark page: question to ask', () => toggleFlag('ask'), 'Q', inDoc);
+    add('Actions', 'panel-left', 'Show or hide page thumbnails', () => setThumbsOpen(thumbsEl.hidden), 'T', inDoc);
+    add('Actions', 'panel-right', 'Show or hide the notes panel', () => $('#btnSidebar').click(), '\\', inDoc);
+    add('Export', 'file-down', 'Export PDF with notes', () => exportPdf(false), '', inDoc);
+    add('Export', 'file-text', 'Export editable PDF', () => exportPdf(true), '', inDoc);
+    add('Export', 'notebook-pen', 'Export notes as Markdown', exportMarkdown, '', inDoc);
+    add('Export', 'sparkles', 'Export flashcards for Anki', exportAnki, '', inDoc);
+    add('Export', 'hard-drive-download', 'Back up this lecture', exportJson, '', inDoc);
+    add('Library', 'library', 'Go to the library', showLibrary, 'L', inDoc);
+    add('Library', 'hard-drive-download', 'Back up everything', backupAll, '', libDocs.length > 0);
+    add('Library', 'sparkles', 'Open the demo lecture', openSample);
+    for (const t of ['light', 'dark', 'system']) {
+      add('Theme', t === 'light' ? 'sun' : t === 'dark' ? 'moon' : 'monitor', `Theme: ${t === 'system' ? 'same as my device' : t}`, () => $(`[data-theme-set="${t}"]`).click());
+    }
+    add('Help', 'keyboard', 'Keyboard shortcuts', openHelp, '?');
+    for (const d of libDocs) add('Lectures', 'file-text', baseName(d.name), () => openDoc(d.id), d.course || '');
+    return c;
+  }
+
+  function drawCmdk() {
+    const q = cmdkInput.value.trim().toLowerCase();
+    const words = q.split(/\s+/).filter(Boolean);
+    cmdItems = commands().filter((c) => words.every((w) => (c.title + ' ' + c.group + ' ' + (c.hint || '')).toLowerCase().includes(w)));
+    cmdSel = clamp(cmdSel, 0, Math.max(0, cmdItems.length - 1));
+    cmdkList.textContent = '';
+    if (!cmdItems.length) { cmdkList.appendChild(el('div', 'cmdk-empty', 'Nothing found.')); return; }
+    let group = null;
+    cmdItems.forEach((c, i) => {
+      if (c.group !== group) { group = c.group; cmdkList.appendChild(el('div', 'cmdk-group', group)); }
+      const b = el('button', 'cmdk-item' + (i === cmdSel ? ' sel' : ''));
+      b.setAttribute('role', 'option');
+      b.appendChild(icon(c.ic));
+      b.appendChild(el('span', 't', c.title));
+      if (c.hint) b.appendChild(el(c.group === 'Lectures' ? 'span' : 'kbd', c.group === 'Lectures' ? 'muted small' : null, c.hint));
+      b.addEventListener('click', () => runCmd(i));
+      b.addEventListener('mousemove', () => { if (cmdSel !== i) { cmdSel = i; markCmd(); } });
+      cmdkList.appendChild(b);
+    });
+  }
+
+  function markCmd() {
+    $$('.cmdk-item', cmdkList).forEach((b, i) => b.classList.toggle('sel', i === cmdSel));
+    const cur = $$('.cmdk-item', cmdkList)[cmdSel];
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
+  }
+
+  function runCmd(i) {
+    const c = cmdItems[i];
+    cmdk.close();
+    if (c) setTimeout(() => c.run(), 0);
+  }
+
+  async function openCmdk() {
+    if (cmdk.open) return;
+    for (const d of [helpDialog, studyDialog]) if (d.open) d.close();
+    setMenu(false);
+    cmdkInput.value = '';
+    cmdSel = 0;
+    drawCmdk();
+    cmdk.showModal();
+    cmdkInput.focus();
+    // Refresh the lecture list in the background so typing is never lost.
+    try { libDocs = (await DB.all('docs')).sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0)); } catch (_) { /* keep */ }
+    if (cmdk.open) drawCmdk();
+  }
+
+  cmdkInput.addEventListener('input', () => { cmdSel = 0; drawCmdk(); });
+  cmdkInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); cmdSel = Math.min(cmdItems.length - 1, cmdSel + 1); markCmd(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cmdSel = Math.max(0, cmdSel - 1); markCmd(); }
+    else if (e.key === 'Enter') { e.preventDefault(); runCmd(cmdSel); }
+  });
+  cmdk.addEventListener('click', (e) => { if (e.target === cmdk) cmdk.close(); });
+
+  // ------------------------------------------------------------------ phone: notes panel as a bottom sheet
+  (() => {
+    const handle = $('#sheetHandle');
+    const sheet = $('#sidebar');
+    const SNAP = [18, 42, 80];
+    let snap = 1;
+    const setH = (pct) => sheet.style.setProperty('--sheet-h', pct + '%');
+    handle.addEventListener('pointerdown', (e) => {
+      const startY = e.clientY;
+      const startH = sheet.getBoundingClientRect().height;
+      const total = $('#reader').getBoundingClientRect().height;
+      let moved = false;
+      handle.setPointerCapture(e.pointerId);
+      sheet.classList.add('dragging');
+      const move = (ev) => {
+        if (Math.abs(ev.clientY - startY) > 4) moved = true;
+        setH(clamp(((startH + startY - ev.clientY) / total) * 100, 12, 88));
+      };
+      const up = (ev) => {
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', up);
+        sheet.classList.remove('dragging');
+        if (!moved) snap = (snap + 1) % SNAP.length;
+        else {
+          const pct = ((startH + startY - ev.clientY) / total) * 100;
+          snap = SNAP.reduce((best, v, i) => (Math.abs(v - pct) < Math.abs(SNAP[best] - pct) ? i : best), 0);
+        }
+        setH(SNAP[snap]);
+      };
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', up);
+    });
+  })();
+
+  // The page pill fades while you read and comes back when you move the mouse.
+  (() => {
+    const pill = $('#pagePill');
+    let t = 0;
+    const wake = () => {
+      pill.classList.remove('idle');
+      clearTimeout(t);
+      t = setTimeout(() => pill.classList.add('idle'), 2500);
+    };
+    viewer.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(() => pill.classList.add('idle'), 900); }, { passive: true });
+    $('.viewer-wrap').addEventListener('pointermove', wake, { passive: true });
+    wake();
+  })();
 
   // ------------------------------------------------------------------ export / import
   function exportMarkdown() {
@@ -2324,8 +2664,12 @@
     try {
       const data = JSON.parse(await file.text());
       if (data.app !== 'lecture-pdf-notes' || !Array.isArray(data.annotations)) throw new Error('Not a notes backup file.');
-      if (data.docId !== S.doc.id && !confirm(`This backup was made for "${data.name}", which is a different file from the open PDF.\nApply it anyway?`)) return;
-      if (!confirm('Replace the current notes of this PDF with the backup?')) return;
+      if (data.docId !== S.doc.id && !(await ask({
+        title: 'This backup is for a different PDF',
+        body: `It was made for "${data.name}", which is a different file from the open lecture. Apply it anyway?`,
+        ok: 'Apply anyway',
+      }))) return;
+      if (!(await ask({ title: 'Restore this backup?', body: 'The current notes of this lecture will be replaced by the ones in the backup.', ok: 'Replace notes', danger: true }))) return;
       S.doc.docNote = data.docNote || '';
       S.doc.pageNotes = data.pageNotes || {};
       S.doc.pageFlags = data.pageFlags || {};
@@ -2342,9 +2686,25 @@
   }
 
   const exportMenu = $('#exportMenu');
-  const setMenu = (open) => { exportMenu.hidden = !open; $('#btnExport').setAttribute('aria-expanded', String(open)); };
-  $('#btnExport').addEventListener('click', (e) => { e.stopPropagation(); setMenu(exportMenu.hidden); });
+  const moreMenu = $('#moreMenu');
+  const MENUS = [[exportMenu, '#btnExport'], [moreMenu, '#btnMore']];
+  const setMenu = (open, which) => {
+    for (const [m, btn] of MENUS) {
+      const show = !!open && m === which;
+      m.hidden = !show;
+      $(btn).setAttribute('aria-expanded', String(show));
+    }
+  };
+  $('#btnExport').addEventListener('click', (e) => { e.stopPropagation(); setMenu(exportMenu.hidden, exportMenu); });
+  $('#btnMore').addEventListener('click', (e) => { e.stopPropagation(); setMenu(moreMenu.hidden, moreMenu); });
+  moreMenu.addEventListener('click', (e) => { if (e.target.closest('.theme-seg')) e.stopPropagation(); });
   document.addEventListener('click', () => setMenu(false));
+  $$('[data-more]', moreMenu).forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.more;
+    if (k === 'open') $('#fileInput').click();
+    else if (k === 'cmdk') openCmdk();
+    else if (k === 'help') openHelp();
+  }));
   $$('[data-export]', exportMenu).forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.export;
     if (k === 'pdf') exportPdf(false);
@@ -2369,7 +2729,6 @@
   $('#btnSample').addEventListener('click', openSample);
   const helpDialog = $('#helpDialog');
   const openHelp = () => { if (!helpDialog.open) helpDialog.showModal(); };
-  $('#btnHelp').addEventListener('click', openHelp);
   $('#btnHelp2').addEventListener('click', openHelp);
   helpDialog.addEventListener('click', (e) => { if (e.target === helpDialog) helpDialog.close(); });
   $('#appVersion').textContent = 'uni-pdf v' + VERSION;
@@ -2388,22 +2747,30 @@
   $('#btnZoomOut').addEventListener('click', () => zoomBy(1 / 1.15));
   $('#btnZoomLabel').addEventListener('click', () => applyZoom('fit'));
   $('#btnArea').addEventListener('click', () => setAreaMode(!S.areaMode));
+  $('#btnSelect').addEventListener('click', () => { setAreaMode(false); setDrawMode(false); });
   $('#btnSidebar').addEventListener('click', () => {
     const hidden = document.body.classList.toggle('sidebar-hidden');
+    $('#btnSidebar').setAttribute('aria-pressed', String(!hidden));
     try { localStorage.setItem('sidebarHidden', hidden ? '1' : '0'); } catch (_) { /* ignore */ }
   });
 
-  // Theme
+  // Theme: light, dark, or follow the device ("system")
   (() => {
-    let theme = null;
-    try { theme = localStorage.getItem('theme'); } catch (_) { /* ignore */ }
-    if (!theme) theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    document.documentElement.dataset.theme = theme;
-    $('#btnTheme').addEventListener('click', () => {
-      const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-      document.documentElement.dataset.theme = t;
-      try { localStorage.setItem('theme', t); } catch (_) { /* ignore */ }
-    });
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    let pref = 'system';
+    try { pref = localStorage.getItem('theme') || 'system'; } catch (_) { /* ignore */ }
+    const apply = () => {
+      document.documentElement.dataset.theme = pref === 'system' ? (media.matches ? 'dark' : 'light') : pref;
+      document.documentElement.dataset.themePref = pref;
+      $$('[data-theme-set]').forEach((b) => b.classList.toggle('active', b.dataset.themeSet === pref));
+    };
+    $$('[data-theme-set]').forEach((b) => b.addEventListener('click', () => {
+      pref = b.dataset.themeSet;
+      try { localStorage.setItem('theme', pref); } catch (_) { /* ignore */ }
+      apply();
+    }));
+    media.addEventListener('change', () => { if (pref === 'system') apply(); });
+    apply();
   })();
 
   // Drag & drop
@@ -2429,6 +2796,8 @@
       setMenu(false);
       if (!findBar.hidden && !isTyping(e.target)) closeFind();
     }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openCmdk(); return; }
+    if ($('#cmdk').open || $('#askDialog').open) return;
     const readerOpen = S.doc && !$('#reader').hidden && !helpDialog.open && !studyDialog.open;
     if (readerOpen && (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(); return; }
     if (readerOpen && F.matches.length && (e.key === 'F3' || ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')))) {

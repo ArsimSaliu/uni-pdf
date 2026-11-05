@@ -17,7 +17,19 @@ The study release: features for revising, not just reading.
 - **Full backup:** back up every PDF and note in one file, and restore it on another computer or after clearing the browser.
 
 ### Changed
-- The toolbar adapts better to tablet and small laptop widths.
+- **A fresh, modern design.**
+  - The Inter font and a consistent icon set (Lucide) replace emoji icons.
+  - Softer colours and depth, smooth animations, and a dark mode that looks the same everywhere.
+  - A theme option: light, dark, or the same as your device.
+- **A tidier toolbar.**
+  - A Select / Area / Draw switcher, with Study and Export at the top.
+  - Page navigation and zoom moved to a small floating bar over the slides.
+  - Everything else lives in the ⋯ menu.
+- **Command palette** (`Ctrl+K`): search and run every action, or jump to any lecture.
+- **Library as cards:** a preview of each lecture, a progress bar, and badges for exam pages, questions and cards due. Lectures can be grouped into **courses**.
+- **Proper dialogs** instead of browser pop-ups for important choices (which notes to keep, removing a lecture, restoring a backup).
+- The text selection popover can also **copy** the text or **search** the slides for it.
+- **On phones**, the notes panel is a bottom sheet you can drag up and down.
 - The library shows exam and question counts and how many cards are due for review.
 
 ## [1.0.0] - 2026-11-05

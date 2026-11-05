@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>uni-pdf: lecture slides and your notes, side by side</title>
   <meta name="description" content="A free, private PDF reader for lectures. Highlight slides, attach notes to any sentence or diagram, and export a PDF with your notes next to every slide. Works offline, nothing is uploaded.">
   <meta name="theme-color" content="#2f6fde">
@@ -10,131 +10,159 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    // Apply the theme before the first paint (no flash of the wrong theme).
+    (function () {
+      var t = 'system';
+      try { t = localStorage.getItem('theme') || 'system'; } catch (e) {}
+      var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      document.documentElement.dataset.themePref = t;
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="toolbar">
-    <div class="tb-group">
-      <button id="btnLibrary" class="btn" title="Library (L)"><span class="brand-dot" aria-hidden="true"></span><span class="lbl">Library</span></button>
-      <label class="btn primary" title="Open a PDF (O)">
-        Open PDF
-        <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
-      </label>
-    </div>
-    <span id="docTitle" class="doc-title doc-only"></span>
+  <!-- icons:start -->
+  <svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><symbol id="i-library" viewBox="0 0 24 24"><path d="m16 6 4 14" /><path d="M12 6v14" /><path d="M8 8v12" /><path d="M4 4v16" /></symbol><symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-panel-left" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 3v18" /></symbol><symbol id="i-panel-right" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M15 3v18" /></symbol><symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /><line x1="11" x2="11" y1="8" y2="14" /><line x1="8" x2="14" y1="11" y2="11" /></symbol><symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /><line x1="8" x2="14" y1="11" y2="11" /></symbol><symbol id="i-mouse-pointer-2" viewBox="0 0 24 24"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z" /></symbol><symbol id="i-square-dashed" viewBox="0 0 24 24"><path d="M5 3a2 2 0 0 0-2 2" /><path d="M19 3a2 2 0 0 1 2 2" /><path d="M21 19a2 2 0 0 1-2 2" /><path d="M5 21a2 2 0 0 1-2-2" /><path d="M9 3h1" /><path d="M9 21h1" /><path d="M14 3h1" /><path d="M14 21h1" /><path d="M3 9v1" /><path d="M21 9v1" /><path d="M3 14v1" /><path d="M21 14v1" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol><symbol id="i-highlighter" viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3" /><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" /></symbol><symbol id="i-eraser" viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" /><path d="m5.082 11.09 8.828 8.828" /></symbol><symbol id="i-undo-2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></symbol><symbol id="i-graduation-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol><symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></symbol><symbol id="i-circle-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" /></symbol><symbol id="i-message-circle-question-mark" viewBox="0 0 24 24"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></symbol><symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></symbol><symbol id="i-sticky-note" viewBox="0 0 24 24"><path d="M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" /><path d="M15 3v5a1 1 0 0 0 1 1h5" /></symbol><symbol id="i-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></symbol><symbol id="i-command" viewBox="0 0 24 24"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="M12 5v14" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-keyboard" viewBox="0 0 24 24"><path d="M10 8h.01" /><path d="M12 12h.01" /><path d="M14 8h.01" /><path d="M16 12h.01" /><path d="M18 8h.01" /><path d="M6 8h.01" /><path d="M7 16h10" /><path d="M8 12h.01" /><rect width="20" height="16" x="2" y="4" rx="2" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /><path d="M3 12h.01" /><path d="M3 19h.01" /><path d="M8 5h13" /><path d="M8 12h13" /><path d="M8 19h13" /></symbol><symbol id="i-layout-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></symbol><symbol id="i-bug" viewBox="0 0 24 24"><path d="M12 20v-9" /><path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /><path d="M14.12 3.88 16 2" /><path d="M21 21a4 4 0 0 0-3.81-4" /><path d="M21 5a4 4 0 0 1-3.55 3.97" /><path d="M22 13h-4" /><path d="M3 21a4 4 0 0 1 3.81-4" /><path d="M3 5a4 4 0 0 0 3.55 3.97" /><path d="M6 13H2" /><path d="m8 2 1.88 1.88" /><path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></symbol><symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18" /><path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /><path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /><path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /><path d="M7 21h10" /></symbol><symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 5v16" /><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" /></symbol><symbol id="i-file-plus" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M9 15h6" /><path d="M12 18v-6" /></symbol><symbol id="i-archive-restore" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1" /><path d="M4 8v11a2 2 0 0 0 2 2h2" /><path d="M20 8v11a2 2 0 0 1-2 2h-2" /><path d="m9 15 3-3 3 3" /><path d="M12 12v9" /></symbol><symbol id="i-hard-drive-download" viewBox="0 0 24 24"><path d="M12 2v8" /><path d="m16 6-4 4-4-4" /><rect width="20" height="8" x="2" y="14" rx="2" /><path d="M6 18h.01" /><path d="M10 18h.01" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" /></symbol><symbol id="i-notebook-pen" viewBox="0 0 24 24"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" /><path d="M2 6h4" /><path d="M2 10h4" /><path d="M2 14h4" /><path d="M2 18h4" /><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" /></symbol><symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M12 18v-6" /><path d="m9 15 3 3 3-3" /></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></symbol></svg>
+  <!-- icons:end -->
 
-    <div class="tb-group doc-only">
-      <button id="btnThumbs" class="btn icon" title="Page thumbnails and outline (T)" aria-label="Page thumbnails and outline" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="1.5" y="9" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 4h5.5M9 11h5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
-      <button id="btnPrev" class="btn icon" title="Previous page (←)" aria-label="Previous page">‹</button>
-      <input id="pageInput" class="page-input" type="text" inputmode="numeric" value="1" aria-label="Page number">
-      <span class="muted">/ <span id="pageCount">0</span></span>
-      <button id="btnNext" class="btn icon" title="Next page (→)" aria-label="Next page">›</button>
+  <header class="topbar">
+    <div class="tb-left">
+      <button id="btnLibrary" class="btn ghost" title="Library (L)"><svg class="ic" aria-hidden="true"><use href="#i-library"/></svg><span class="lbl">Library</span></button>
+      <button id="btnThumbs" class="btn ghost icon doc-only" title="Pages and outline (T)" aria-label="Pages and outline" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-panel-left"/></svg></button>
+      <div class="brand lib-only"><img src="icons/icon.svg" alt="" width="26" height="26"><span>uni-pdf</span></div>
+      <div class="doc-heading doc-only">
+        <span id="docTitle" class="doc-title"></span>
+        <span id="saveState" class="save-state"></span>
+      </div>
     </div>
 
-    <div class="tb-group doc-only">
-      <button id="btnZoomOut" class="btn icon" title="Zoom out (-)" aria-label="Zoom out">−</button>
-      <button id="btnZoomLabel" class="btn zoom-label" title="Fit to width (0)">100%</button>
-      <button id="btnZoomIn" class="btn icon" title="Zoom in (+)" aria-label="Zoom in">+</button>
-      <button id="btnArea" class="btn" title="Area note: drag a box over a diagram or image (A). Alt+drag also works.">▭<span class="lbl"> Area</span></button>
-      <button id="btnDraw" class="btn" title="Draw on the slide with a pen or highlighter (D)" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.2l3 3L5.5 13.5 2 14l.5-3.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span class="lbl"> Draw</span></button>
-      <button id="btnFind" class="btn icon" title="Search in the slides (Ctrl+F)" aria-label="Search in the slides"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <div class="tb-center doc-only">
+      <div class="seg tools" role="group" aria-label="Tool">
+        <button id="btnSelect" class="seg-btn active" title="Select text to highlight or note (Esc)" aria-pressed="true"><svg class="ic" aria-hidden="true"><use href="#i-mouse-pointer-2"/></svg><span class="lbl">Select</span></button>
+        <button id="btnArea" class="seg-btn" title="Area note: drag a box over a diagram or image (A). Alt+drag also works." aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-square-dashed"/></svg><span class="lbl">Area</span></button>
+        <button id="btnDraw" class="seg-btn" title="Draw with a pen or highlighter (D)" aria-pressed="false"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg><span class="lbl">Draw</span></button>
+      </div>
     </div>
 
-    <div class="tb-group">
-      <span id="saveState" class="save-state muted"></span>
-      <button id="btnStudy" class="btn doc-only" title="Study your notes as flashcards (S)">🎓<span class="lbl"> Study</span></button>
+    <div class="tb-right">
+      <button id="btnFind" class="btn ghost icon doc-only" title="Search in the slides (Ctrl+F)" aria-label="Search in the slides"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></button>
+      <button id="btnStudy" class="btn soft doc-only" title="Study your notes as flashcards (S)"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap"/></svg><span class="lbl">Study</span></button>
       <div class="menu-wrap doc-only">
-        <button id="btnExport" class="btn" aria-haspopup="menu" aria-expanded="false">Export ▾</button>
+        <button id="btnExport" class="btn soft" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span class="lbl">Export</span><svg class="ic caret" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
         <div id="exportMenu" class="menu" role="menu" hidden>
-          <button role="menuitem" data-export="pdf">PDF with highlights &amp; notes (.pdf)</button>
-          <button role="menuitem" data-export="pdf-edit">Editable PDF (open it here again to keep editing)</button>
-          <button role="menuitem" data-export="md">Notes as Markdown (.md)</button>
-          <button role="menuitem" data-export="anki">Flashcards for Anki (.txt)</button>
-          <button role="menuitem" data-export="json">Backup this PDF's notes (.json)</button>
-          <button role="menuitem" data-export="import">Restore notes from backup…</button>
+          <button role="menuitem" data-export="pdf"><svg class="ic" aria-hidden="true"><use href="#i-file-down"/></svg><span><b>PDF with notes</b><small>Your notes next to every slide</small></span></button>
+          <button role="menuitem" data-export="pdf-edit"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg><span><b>Editable PDF</b><small>Open it here again to keep editing</small></span></button>
+          <button role="menuitem" data-export="md"><svg class="ic" aria-hidden="true"><use href="#i-notebook-pen"/></svg><span><b>Markdown</b><small>For Obsidian, Notion and other notes apps</small></span></button>
+          <button role="menuitem" data-export="anki"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span><b>Flashcards for Anki</b><small>One card per note</small></span></button>
+          <hr>
+          <button role="menuitem" data-export="json"><svg class="ic" aria-hidden="true"><use href="#i-hard-drive-download"/></svg><span><b>Back up this lecture</b><small>A .json file with all its notes</small></span></button>
+          <button role="menuitem" data-export="import"><svg class="ic" aria-hidden="true"><use href="#i-archive-restore"/></svg><span><b>Restore from backup…</b></span></button>
         </div>
       </div>
-      <input id="importInput" type="file" accept=".json,application/json" hidden>
-      <button id="btnTheme" class="btn icon" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
-      <button id="btnHelp" class="btn icon" title="Help and keyboard shortcuts (?)" aria-label="Help and keyboard shortcuts">?</button>
-      <button id="btnSidebar" class="btn doc-only" title="Toggle notes panel (\)">Notes ⇥</button>
+      <div class="menu-wrap">
+        <button id="btnMore" class="btn ghost icon" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-ellipsis"/></svg></button>
+        <div id="moreMenu" class="menu" role="menu" hidden>
+          <button role="menuitem" class="doc-only" data-more="open"><svg class="ic" aria-hidden="true"><use href="#i-file-plus"/></svg><span><b>Open another PDF</b></span><kbd>O</kbd></button>
+          <button role="menuitem" data-more="cmdk"><svg class="ic" aria-hidden="true"><use href="#i-command"/></svg><span><b>Command palette</b></span><kbd>Ctrl K</kbd></button>
+          <button role="menuitem" data-more="help"><svg class="ic" aria-hidden="true"><use href="#i-keyboard"/></svg><span><b>Keyboard shortcuts</b></span><kbd>?</kbd></button>
+          <hr>
+          <div class="menu-label">Theme</div>
+          <div class="theme-seg seg" role="group" aria-label="Theme">
+            <button class="seg-btn" data-theme-set="light" title="Light"><svg class="ic" aria-hidden="true"><use href="#i-sun"/></svg></button>
+            <button class="seg-btn" data-theme-set="dark" title="Dark"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg></button>
+            <button class="seg-btn" data-theme-set="system" title="Same as my device"><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg></button>
+          </div>
+          <hr>
+          <a role="menuitem" href="https://github.com/ArsimSaliu/uni-pdf/issues/new/choose" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-bug"/></svg><span><b>Report a problem</b></span></a>
+          <a role="menuitem" href="https://github.com/ArsimSaliu/uni-pdf/blob/main/app/vendor/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-scale"/></svg><span><b>Licences</b></span></a>
+        </div>
+      </div>
+      <button id="btnSidebar" class="btn ghost icon doc-only" title="Notes panel (\)" aria-label="Notes panel"><svg class="ic" aria-hidden="true"><use href="#i-panel-right"/></svg></button>
     </div>
   </header>
+  <input id="importInput" type="file" accept=".json,application/json" hidden>
+  <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
 
   <main id="main">
     <!-- Library / home -->
     <section id="library" class="library">
-      <div class="lib-hero">
-        <img src="icons/icon.svg" alt="" width="56" height="56">
-        <div>
-          <h1>uni-pdf</h1>
-          <p class="muted">Lecture slides and your notes, side by side. Private, offline, free.</p>
+      <div class="lib-wrap">
+        <div class="lib-top">
+          <div>
+            <h1>Your lectures</h1>
+            <p class="muted">Lecture slides and your notes, side by side. Private, offline, free.</p>
+          </div>
+          <div class="lib-actions">
+            <button id="btnSample" class="btn soft"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Try the demo lecture</span></button>
+            <label class="btn primary"><svg class="ic" aria-hidden="true"><use href="#i-file-plus"/></svg><span>Open PDF</span><input id="fileInput2" type="file" accept="application/pdf,.pdf" hidden></label>
+          </div>
         </div>
-      </div>
-      <div id="dropZone" class="drop-zone">
-        <div class="drop-icon" aria-hidden="true">📄</div>
-        <p><strong>Drop a lecture PDF here</strong> or use <em>Open PDF</em>.</p>
-        <p class="muted small">Everything stays on this device. PDFs and notes are saved in your browser, never uploaded.</p>
-        <div class="drop-actions">
-          <label class="btn primary">
-            Open PDF
-            <input id="fileInput2" type="file" accept="application/pdf,.pdf" hidden>
-          </label>
-          <button id="btnSample" class="btn">Try the demo lecture</button>
+
+        <div id="dropZone" class="drop-zone">
+          <div class="drop-art" aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-file-plus"/></svg></div>
+          <p class="drop-title">Drop a lecture PDF anywhere</p>
+          <p class="muted small">Everything stays on this device. PDFs and notes are saved in your browser, never uploaded.</p>
         </div>
+
+        <div id="libEmpty" class="lib-empty">
+          <ol class="howto">
+            <li><span class="step"><svg class="ic" aria-hidden="true"><use href="#i-file-plus"/></svg></span><div><b>Open your slides</b><span>Drop a PDF or press <kbd>O</kbd>.</span></div></li>
+            <li><span class="step"><svg class="ic" aria-hidden="true"><use href="#i-highlighter"/></svg></span><div><b>Highlight and annotate</b><span>Select text, press <kbd>N</kbd> for a note. <kbd>A</kbd> boxes a diagram, <kbd>D</kbd> draws.</span></div></li>
+            <li><span class="step"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap"/></svg></span><div><b>Study</b><span>Your notes become flashcards. Press <kbd>S</kbd>.</span></div></li>
+            <li><span class="step"><svg class="ic" aria-hidden="true"><use href="#i-file-down"/></svg></span><div><b>Export</b><span>One PDF with your notes next to every slide.</span></div></li>
+          </ol>
+        </div>
+
+        <div class="lib-bar" id="libBar">
+          <div class="search-wrap"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="libSearch" class="search" type="search" placeholder="Search lectures and all your notes…" aria-label="Search lectures and notes"></div>
+          <div id="courseChips" class="chips" role="group" aria-label="Courses"></div>
+        </div>
+        <div id="libHits" class="lib-hits" hidden></div>
+        <div id="libGroups"></div>
+
+        <div id="libTools" class="lib-tools small" hidden>
+          <button id="btnBackupAll" class="btn ghost small"><svg class="ic" aria-hidden="true"><use href="#i-hard-drive-download"/></svg><span>Back up everything</span></button>
+          <button id="btnRestoreAll" class="btn ghost small"><svg class="ic" aria-hidden="true"><use href="#i-archive-restore"/></svg><span>Restore a full backup…</span></button>
+          <input id="restoreAllInput" type="file" accept=".json,application/json" hidden>
+        </div>
+
+        <footer class="lib-foot muted small">
+          <span id="appVersion"></span>
+          · <a href="https://github.com/ArsimSaliu/uni-pdf" target="_blank" rel="noopener">Source on GitHub</a>
+          · <a href="https://github.com/ArsimSaliu/uni-pdf/issues/new/choose" target="_blank" rel="noopener">Report a problem</a>
+          · <a href="https://github.com/ArsimSaliu/uni-pdf/blob/main/app/vendor/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener">Licences</a>
+          · <a href="https://arsimsaliu.github.io/uni-pdf/impressum.html" target="_blank" rel="noopener">Impressum</a>
+          · <button id="btnHelp2" class="linklike">Keyboard shortcuts</button>
+        </footer>
       </div>
-      <div class="lib-bar">
-        <h2 class="lib-heading">Your lectures</h2>
-        <input id="libSearch" class="search lib-search" type="search" placeholder="Search lectures and all your notes…" aria-label="Search lectures and notes">
-      </div>
-      <div id="libHits" class="lib-hits" hidden></div>
-      <ul id="libList" class="lib-list"></ul>
-      <div id="libTools" class="lib-tools small" hidden>
-        <button id="btnBackupAll" class="linklike">Back up everything</button> (all PDFs and notes in one file)
-        · <button id="btnRestoreAll" class="linklike">Restore a full backup…</button>
-        <input id="restoreAllInput" type="file" accept=".json,application/json" hidden>
-      </div>
-      <div id="libEmpty" class="lib-empty">
-        <p class="muted">No PDFs yet. Here's how it works:</p>
-        <ol class="howto">
-          <li><strong>Open</strong> your lecture slides.</li>
-          <li><strong>Select text</strong> and pick a colour to highlight, or press <kbd>N</kbd> to attach a note.</li>
-          <li><strong>Drag a box</strong> with <kbd>A</kbd> to note a diagram or formula.</li>
-          <li><strong>Export</strong> a PDF with your notes printed next to every slide.</li>
-        </ol>
-      </div>
-      <footer class="lib-foot muted small">
-        <span id="appVersion"></span>
-        · <a href="https://github.com/ArsimSaliu/uni-pdf" target="_blank" rel="noopener">Source on GitHub</a>
-        · <a href="https://github.com/ArsimSaliu/uni-pdf/issues/new/choose" target="_blank" rel="noopener">Report a problem</a>
-        · <a href="https://github.com/ArsimSaliu/uni-pdf/blob/main/app/vendor/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener">Licences</a>
-        · <button id="btnHelp2" class="linklike">Keyboard shortcuts</button>
-      </footer>
     </section>
 
     <!-- Reader -->
     <section id="reader" class="reader" hidden>
       <aside id="thumbs" class="thumbs" hidden aria-label="Pages">
-        <nav class="thumbs-tabs" id="thumbsTabs" hidden>
-          <button class="ttab active" data-ttab="pages">Pages</button>
-          <button class="ttab" data-ttab="outline">Outline</button>
+        <nav class="thumbs-tabs seg" id="thumbsTabs" hidden>
+          <button class="ttab seg-btn active" data-ttab="pages"><svg class="ic" aria-hidden="true"><use href="#i-layout-grid"/></svg><span>Pages</span></button>
+          <button class="ttab seg-btn" data-ttab="outline"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span>Outline</span></button>
         </nav>
         <div id="thumbList" class="thumb-list"></div>
         <div id="outlineList" class="outline-list" hidden></div>
       </aside>
       <div class="viewer-wrap">
-        <div id="findBar" class="find-bar" hidden role="search">
+        <div id="findBar" class="find-bar floating" hidden role="search">
+          <svg class="ic find-ic" aria-hidden="true"><use href="#i-search"/></svg>
           <input id="findInput" type="search" placeholder="Search in the slides…" aria-label="Search in the slides">
-          <span id="findCount" class="find-count muted small"></span>
-          <button id="findPrev" class="btn icon small" title="Previous match (Shift+Enter)" aria-label="Previous match">↑</button>
-          <button id="findNext" class="btn icon small" title="Next match (Enter)" aria-label="Next match">↓</button>
-          <button id="findClose" class="btn icon small" title="Close (Esc)" aria-label="Close search">✕</button>
+          <span id="findCount" class="find-count"></span>
+          <button id="findPrev" class="btn ghost icon small" title="Previous match (Shift+Enter)" aria-label="Previous match"><svg class="ic" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
+          <button id="findNext" class="btn ghost icon small" title="Next match (Enter)" aria-label="Next match"><svg class="ic" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
+          <button id="findClose" class="btn ghost icon small" title="Close (Esc)" aria-label="Close search"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
-        <div id="drawBar" class="draw-bar" hidden role="toolbar" aria-label="Drawing tools">
+        <div id="drawBar" class="draw-bar floating" hidden role="toolbar" aria-label="Drawing tools">
           <div class="seg" role="group" aria-label="Tool">
-            <button class="dtool active" data-tool="pen" title="Pen" aria-label="Pen"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.2l3 3L5.5 13.5 2 14l.5-3.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
-            <button class="dtool" data-tool="marker" title="Highlighter" aria-label="Highlighter"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5l4 4-5.5 5.5H4v-4z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M2 14.5h7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity=".45"/></svg></button>
-            <button class="dtool" data-tool="eraser" title="Eraser: tap or drag over a stroke" aria-label="Eraser"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 13.5L2.5 10a1.4 1.4 0 010-2l5.5-5.5a1.4 1.4 0 012 0L13.5 6a1.4 1.4 0 010 2L8 13.5zM5 6l5 5M6 13.5h8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+            <button class="dtool seg-btn active" data-tool="pen" title="Pen" aria-label="Pen"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg></button>
+            <button class="dtool seg-btn" data-tool="marker" title="Highlighter" aria-label="Highlighter"><svg class="ic" aria-hidden="true"><use href="#i-highlighter"/></svg></button>
+            <button class="dtool seg-btn" data-tool="eraser" title="Eraser: tap or drag over a stroke" aria-label="Eraser"><svg class="ic" aria-hidden="true"><use href="#i-eraser"/></svg></button>
           </div>
           <span class="sep"></span>
           <div class="dcolors" role="group" aria-label="Colour">
@@ -151,44 +179,54 @@
             <button class="dsize" data-size="2" title="Thick" aria-label="Thick"><i></i></button>
           </div>
           <span class="sep"></span>
-          <button id="drawUndo" class="btn icon small" title="Undo (Ctrl+Z)" aria-label="Undo"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4L2.5 7l3 3M3 7h6.5a4 4 0 010 8H7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button id="drawDone" class="btn small primary" title="Stop drawing (Esc)">Done</button>
+          <button id="drawUndo" class="btn ghost icon small" title="Undo (Ctrl+Z)" aria-label="Undo"><svg class="ic" aria-hidden="true"><use href="#i-undo-2"/></svg></button>
+          <button id="drawDone" class="btn small primary" title="Stop drawing (Esc)"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span>Done</span></button>
         </div>
         <div id="viewer" class="viewer" tabindex="-1">
           <div id="pages" class="pages"></div>
         </div>
+        <div id="pagePill" class="page-pill floating" role="group" aria-label="Page and zoom">
+          <button id="btnPrev" class="btn ghost icon small" title="Previous page (←)" aria-label="Previous page"><svg class="ic" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+          <span class="page-of"><input id="pageInput" class="page-input" type="text" inputmode="numeric" value="1" aria-label="Page number"><span class="muted">/ <span id="pageCount">0</span></span></span>
+          <button id="btnNext" class="btn ghost icon small" title="Next page (→)" aria-label="Next page"><svg class="ic" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+          <span class="sep"></span>
+          <button id="btnZoomOut" class="btn ghost icon small" title="Zoom out (-)" aria-label="Zoom out"><svg class="ic" aria-hidden="true"><use href="#i-zoom-out"/></svg></button>
+          <button id="btnZoomLabel" class="btn ghost small zoom-label" title="Fit to width (0)">100%</button>
+          <button id="btnZoomIn" class="btn ghost icon small" title="Zoom in (+)" aria-label="Zoom in"><svg class="ic" aria-hidden="true"><use href="#i-zoom-in"/></svg></button>
+        </div>
       </div>
       <div id="divider" class="divider" title="Drag to resize"></div>
       <aside id="sidebar" class="sidebar">
-        <nav class="tabs">
-          <button class="tab active" data-tab="page">This page</button>
-          <button class="tab" data-tab="all">All notes</button>
-          <button class="tab" data-tab="doc">Lecture notes</button>
+        <button id="sheetHandle" class="sheet-handle" aria-label="Resize the notes panel"><span></span></button>
+        <nav class="tabs seg">
+          <button class="tab seg-btn active" data-tab="page"><svg class="ic" aria-hidden="true"><use href="#i-sticky-note"/></svg><span>This page</span></button>
+          <button class="tab seg-btn" data-tab="all"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span>All notes</span><span id="allCount" class="count"></span></button>
+          <button class="tab seg-btn" data-tab="doc"><svg class="ic" aria-hidden="true"><use href="#i-book-open"/></svg><span>Lecture</span></button>
         </nav>
 
         <div class="tab-panel" data-panel="page">
           <div class="panel-head">
             <h3>Page <span id="sbPageNum">1</span></h3>
             <div class="flags">
-              <button id="flagExam" class="flag" data-flag="exam" aria-pressed="false" title="Mark as exam-relevant (E)">⭐ Exam</button>
-              <button id="flagAsk" class="flag" data-flag="ask" aria-pressed="false" title="Mark: I have a question about this (Q)">❓ Ask</button>
+              <button id="flagExam" class="flag" data-flag="exam" aria-pressed="false" title="Mark as exam-relevant (E)"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span>Exam</span></button>
+              <button id="flagAsk" class="flag" data-flag="ask" aria-pressed="false" title="Mark: I have a question about this (Q)"><svg class="ic" aria-hidden="true"><use href="#i-message-circle-question-mark"/></svg><span>Ask</span></button>
             </div>
           </div>
           <label class="field-label" for="pageNote">Notes for this page</label>
           <textarea id="pageNote" class="note-area" placeholder="Type what the lecturer says about this slide…"></textarea>
           <div id="pageAnnots" class="annot-list"></div>
-          <p id="pageAnnotsEmpty" class="muted small empty-hint">
-            No highlights on this page yet.<br>
-            Select a word or sentence → choose a colour or <kbd>N</kbd> for a note.
-          </p>
+          <div id="pageAnnotsEmpty" class="empty-hint">
+            <span class="empty-ic"><svg class="ic" aria-hidden="true"><use href="#i-highlighter"/></svg></span>
+            <p><b>No highlights on this page yet</b><br>Select a word or sentence, then pick a colour or press <kbd>N</kbd> for a note.</p>
+          </div>
         </div>
 
         <div class="tab-panel" data-panel="all" hidden>
-          <input id="searchInput" class="search" type="search" placeholder="Search notes & highlights…">
+          <div class="search-wrap"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="searchInput" class="search" type="search" placeholder="Search notes & highlights…"></div>
           <div class="chips" role="group" aria-label="Filter">
             <button class="chip active" data-filter="all">All</button>
-            <button class="chip" data-filter="exam">⭐ Exam</button>
-            <button class="chip" data-filter="ask">❓ Questions</button>
+            <button class="chip" data-filter="exam"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg>Exam</button>
+            <button class="chip" data-filter="ask"><svg class="ic" aria-hidden="true"><use href="#i-message-circle-question-mark"/></svg>Questions</button>
           </div>
           <div id="allList" class="all-list"></div>
         </div>
@@ -205,40 +243,62 @@
   </main>
 
   <!-- Floating toolbar shown on text selection -->
-  <div id="selToolbar" class="sel-toolbar" hidden>
-    <button class="swatch" data-color="yellow" title="Highlight yellow (H)"></button>
-    <button class="swatch" data-color="green" title="Highlight green"></button>
-    <button class="swatch" data-color="blue" title="Highlight blue"></button>
-    <button class="swatch" data-color="pink" title="Highlight pink"></button>
+  <div id="selToolbar" class="sel-toolbar floating" hidden>
+    <button class="swatch" data-color="yellow" title="Highlight yellow (H)" aria-label="Highlight yellow"></button>
+    <button class="swatch" data-color="green" title="Highlight green" aria-label="Highlight green"></button>
+    <button class="swatch" data-color="blue" title="Highlight blue" aria-label="Highlight blue"></button>
+    <button class="swatch" data-color="pink" title="Highlight pink" aria-label="Highlight pink"></button>
     <span class="sep"></span>
-    <button id="selNote" class="btn small primary" title="Highlight and write a note (N)">✎ Note</button>
+    <button id="selNote" class="btn small primary" title="Highlight and write a note (N)"><svg class="ic" aria-hidden="true"><use href="#i-sticky-note"/></svg><span>Note</span></button>
+    <button id="selCopy" class="btn ghost icon small" title="Copy text" aria-label="Copy text"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg></button>
+    <button id="selFind" class="btn ghost icon small" title="Find in the slides" aria-label="Find in the slides"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></button>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMsg"></span><button id="toastAction" class="toast-action" hidden></button></div>
+
+  <dialog id="askDialog" class="ask-dialog" aria-labelledby="askTitle">
+    <form method="dialog">
+      <h2 id="askTitle"></h2>
+      <p id="askBody"></p>
+      <input id="askInput" class="search" type="text" list="askList" hidden>
+      <datalist id="askList"></datalist>
+      <div class="dialog-actions">
+        <button id="askCancel" class="btn soft" value="cancel">Cancel</button>
+        <button id="askOk" class="btn primary" value="ok">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="cmdk" class="cmdk" aria-label="Command palette">
+    <div class="cmdk-search"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><input id="cmdkInput" type="text" placeholder="Type a command or a lecture…" aria-label="Command"></div>
+    <div id="cmdkList" class="cmdk-list" role="listbox"></div>
+    <div class="cmdk-foot muted small"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> run · <kbd>Esc</kbd> close</div>
+  </dialog>
 
   <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpTitle">
     <form method="dialog">
       <h2 id="helpTitle">Keyboard shortcuts</h2>
       <table class="keys">
+        <tr><td><kbd>Ctrl</kbd> <kbd>K</kbd></td><td>Command palette: every action, every lecture</td></tr>
         <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next page</td></tr>
         <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>0</kbd></td><td>Zoom in / out / fit width (or <kbd>Ctrl</kbd> + scroll)</td></tr>
         <tr><td><kbd>H</kbd></td><td>Highlight the selected text</td></tr>
         <tr><td><kbd>N</kbd></td><td>Highlight the selection and write a note</td></tr>
         <tr><td><kbd>A</kbd> or <kbd>Alt</kbd> + drag</td><td>Area note: box a diagram, formula or image</td></tr>
-        <tr><td><kbd>D</kbd></td><td>Draw with a pen or highlighter (<kbd>Ctrl</kbd> + <kbd>Z</kbd> undo, <kbd>Esc</kbd> done)</td></tr>
+        <tr><td><kbd>D</kbd></td><td>Draw with a pen or highlighter (<kbd>Ctrl</kbd> <kbd>Z</kbd> undo, <kbd>Esc</kbd> done)</td></tr>
         <tr><td><kbd>P</kbd></td><td>Write notes for the current page</td></tr>
-        <tr><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>Mark the page ⭐ exam-relevant / ❓ question to ask</td></tr>
-        <tr><td><kbd>Ctrl</kbd> + <kbd>F</kbd></td><td>Search in the slides (<kbd>Enter</kbd> next match)</td></tr>
+        <tr><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>Mark the page exam-relevant / question to ask</td></tr>
+        <tr><td><kbd>Ctrl</kbd> <kbd>F</kbd></td><td>Search in the slides (<kbd>Enter</kbd> next match)</td></tr>
         <tr><td><kbd>T</kbd></td><td>Page thumbnails and outline</td></tr>
         <tr><td><kbd>S</kbd></td><td>Study your notes as flashcards</td></tr>
         <tr><td><kbd>\</kbd></td><td>Hide / show the notes panel</td></tr>
         <tr><td><kbd>L</kbd> / <kbd>O</kbd></td><td>Library / open a PDF</td></tr>
-        <tr><td><kbd>Esc</kbd></td><td>Leave a text box, close menus</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Leave a text box, close menus, back to Select</td></tr>
         <tr><td><kbd>?</kbd></td><td>This help</td></tr>
       </table>
       <h3>Good to know</h3>
       <ul class="small">
-        <li>Notes save automatically, in this browser only. Use <em>Export → Backup</em> before clearing browser data or switching computers.</li>
+        <li>Notes save automatically, in this browser only. Use <em>Export → Back up</em> before clearing browser data or switching computers.</li>
         <li><em>Export → Editable PDF</em> gives you one file that has both the slides and your notes. Open it here again, on any computer, to keep editing.</li>
         <li>Opening the same PDF again, even from another folder, brings back its notes.</li>
       </ul>
@@ -248,9 +308,10 @@
 
   <dialog id="studyDialog" class="study-dialog" aria-labelledby="studyTitle">
     <div class="study-head">
-      <h2 id="studyTitle">🎓 Study</h2>
+      <span class="study-ic"><svg class="ic" aria-hidden="true"><use href="#i-graduation-cap"/></svg></span>
+      <h2 id="studyTitle">Study</h2>
       <span id="studyProgress" class="muted small"></span>
-      <button id="studyClose" class="btn icon small" aria-label="Close">✕</button>
+      <button id="studyClose" class="btn ghost icon small" aria-label="Close"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
     <div id="studySetup" class="study-body">
       <p id="studySummary"></p>
@@ -259,7 +320,7 @@
           <select id="studyScope">
             <option value="due">Due for review</option>
             <option value="all">All cards</option>
-            <option value="exam">Only ⭐ exam pages</option>
+            <option value="exam">Only exam pages</option>
           </select>
         </label>
         <label class="opt"><span>Show first</span>
@@ -270,7 +331,7 @@
         </label>
         <div class="dialog-actions"><button id="studyStart" class="btn primary">Start</button></div>
       </div>
-      <p class="muted small">Every highlight or area with a note is a card. Tip: write notes as answers, e.g. highlight “PCB” and note “stores process state, saved on context switch”.</p>
+      <p class="muted small">Every highlight, area or drawing with a note is a card. Tip: write notes as answers, e.g. highlight “PCB” and note “stores process state, saved on context switch”.</p>
     </div>
     <div id="studyCard" class="study-body" hidden>
       <div class="card-meta muted small"><span id="cardWhere"></span> · <button id="cardOpen" class="linklike">show in PDF</button></div>
@@ -278,14 +339,14 @@
       <div id="cardBack" class="card-face back" hidden></div>
       <div id="cardReveal" class="dialog-actions"><button id="btnReveal" class="btn primary">Show answer <kbd>Space</kbd></button></div>
       <div id="cardGrade" class="grade" hidden>
-        <button class="btn" data-grade="again">Again <kbd>1</kbd></button>
-        <button class="btn" data-grade="good">Good <kbd>2</kbd></button>
-        <button class="btn" data-grade="easy">Easy <kbd>3</kbd></button>
+        <button class="btn soft" data-grade="again">Again <kbd>1</kbd></button>
+        <button class="btn soft" data-grade="good">Good <kbd>2</kbd></button>
+        <button class="btn soft" data-grade="easy">Easy <kbd>3</kbd></button>
       </div>
     </div>
     <div id="studyDone" class="study-body" hidden>
       <p id="studyDoneText"></p>
-      <div class="dialog-actions"><button id="studyAgain" class="btn">Study more</button><button id="studyFinish" class="btn primary">Done</button></div>
+      <div class="dialog-actions"><button id="studyAgain" class="btn soft">Study more</button><button id="studyFinish" class="btn primary">Done</button></div>
     </div>
   </dialog>
 

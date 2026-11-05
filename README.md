@@ -40,6 +40,7 @@ In a lecture you have the slides in one window and your notes in another, and af
 - **Study mode:** your highlights and notes become flashcards with spaced repetition, and you can export them to **Anki**.
 - **Flag slides** as ⭐ exam-relevant or ❓ question to ask, and filter by them.
 - **Page thumbnails and outline** for jumping around long decks.
+- **Command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>) for every action and lecture, and a library of lecture cards you can group by **course**.
 - **Export** a PDF with numbered highlights and a notes column, an *editable* PDF that you can reopen here, Markdown, or a JSON backup.
 - **Private.** No server, account, analytics or uploads. Everything stays in your browser.
 - **Works offline**, can be installed as an app (PWA), has dark mode, and works on phones and tablets.
@@ -73,6 +74,8 @@ In a lecture you have the slides in one window and your notes in another, and af
 | See/search everything | **All notes** tab |
 | Jump to a highlight | Click it in the sidebar. Clicking a highlight in the PDF opens its note |
 | Undo a delete | Click **Undo** in the message that appears |
+| Find any action or lecture | <kbd>Ctrl</kbd>+<kbd>K</kbd> |
+| Group lectures by course | Hover a lecture card in the library → folder icon |
 | Search the slides | <kbd>Ctrl</kbd>+<kbd>F</kbd>, then <kbd>Enter</kbd> / <kbd>Shift</kbd>+<kbd>Enter</kbd> for next / previous |
 | Mark a slide | <kbd>E</kbd> ⭐ exam-relevant · <kbd>Q</kbd> ❓ question to ask (or the buttons in the notes panel) |
 | Study with flashcards | **🎓 Study** or <kbd>S</kbd>. Every highlight with a note is a card. *Export → Flashcards for Anki* for Anki |
@@ -106,7 +109,7 @@ npm run lint
 | `app/` | The app: `index.html`, `styles.css`, `app.js`, `export-pdf.js` (builds the annotated PDF), `sw.js` (offline cache), `manifest.webmanifest` |
 | `app/vendor/` | Bundled so everything works offline: [pdf.js](https://github.com/mozilla/pdf.js) 3.11.174 (Apache-2.0), [pdf-lib](https://pdf-lib.js.org) 1.17.1 + fontkit (MIT), DejaVu Sans (free licence, covers Greek and maths symbols) |
 | `site/` | The homepage, deployed to GitHub Pages together with the app |
-| `scripts/` | `serve.js`, `build-site.js` (→ `_site/` and `dist/uni-pdf.zip`), `make-sample.js` (demo lecture), `screenshots.js` (homepage images and demo video), `make-icons.js`, `bump-version.js` |
+| `scripts/` | `vendor-assets.js` (copies the Inter font and builds the Lucide icon sprite into `app/index.html`), `serve.js`, `build-site.js` (→ `_site/` and `dist/uni-pdf.zip`), `make-sample.js` (demo lecture), `screenshots.js` (homepage images and demo video), `make-icons.js`, `bump-version.js` |
 | `tests/` | Playwright tests: highlighting, notes, persistence, every export, editable-PDF round trip, offline mode, `file://` mode, search, thumbnails, flags, study mode, Anki export, library search and full backup |
 | `marketing/` | Launch kit: copy for Product Hunt, Hacker News, Reddit, social media and more |
 

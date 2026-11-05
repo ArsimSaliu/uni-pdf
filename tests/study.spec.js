@@ -92,9 +92,11 @@ test('page flags: mark, filter, persist and export', async ({ page }) => {
 
   await page.locator('.tab[data-tab="all"]').click();
   await page.click('.chip[data-filter="exam"]');
-  await expect(page.locator('#allList h4')).toHaveText(['Page 3 ⭐']);
+  await expect(page.locator('#allList h4')).toHaveText(['Page 3']);
+  await expect(page.locator('#allList h4 .flag-ic.exam')).toHaveCount(1);
   await page.click('.chip[data-filter="ask"]');
-  await expect(page.locator('#allList h4')).toHaveText(['Page 5 ❓']);
+  await expect(page.locator('#allList h4')).toHaveText(['Page 5']);
+  await expect(page.locator('#allList h4 .flag-ic.ask')).toHaveCount(1);
 
   await expect(page.locator('#saveState')).toHaveText('Saved ✓');
   await page.reload();
@@ -206,9 +208,10 @@ test('full backup restores PDFs and notes into an empty browser', async ({ page,
   await fresh.click('#btnSample'); // need at least one lecture for the library tools to show
   await expect(fresh.locator('#pageCount')).toHaveText('6');
   await fresh.keyboard.press('l');
-  fresh.on('dialog', (d) => d.accept());
   await fresh.click('#btnRestoreAll');
   await fresh.setInputFiles('#restoreAllInput', { name: 'backup.json', mimeType: 'application/json', buffer: backup });
+  await expect(fresh.locator('#askTitle')).toHaveText('Some lectures are already here');
+  await fresh.click('#askOk');
   await expect(fresh.locator('#toastMsg')).toContainText('Backup restored: 0 added, 1 updated');
   await fresh.click('.lib-item');
   await gotoPage(fresh, 2);

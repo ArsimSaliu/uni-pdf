@@ -12,6 +12,9 @@ const CORE = [
   'icons/icon-192.png',
   'vendor/pdf.min.js',
   'vendor/pdf.worker.min.js',
+  'vendor/fonts/inter-latin.woff2',
+  'vendor/fonts/inter-latin-ext.woff2',
+  'vendor/fonts/inter-greek.woff2',
 ];
 // Only needed for exporting or the demo; cached in the background.
 const LAZY = [

@@ -190,9 +190,11 @@ test('backup restore replaces notes', async ({ page }) => {
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-export="json"]')]);
   const backup = fs.readFileSync(await dl.path());
   await page.locator('#pageNote').fill('changed');
-  page.on('dialog', (d) => d.accept());
   await page.click('#btnExport');
   await page.setInputFiles('#importInput', { name: 'b.json', mimeType: 'application/json', buffer: backup });
+  await expect(page.locator('#askDialog')).toBeVisible();
+  await expect(page.locator('#askTitle')).toHaveText('Restore this backup?');
+  await page.click('#askOk');
   await expect(page.locator('#pageNote')).toHaveValue('original');
 });
 

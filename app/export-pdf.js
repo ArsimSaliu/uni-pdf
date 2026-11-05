@@ -220,7 +220,19 @@
       const fs = clamp(H / 42, 7.5, 12);
       const pad = fs * 1.5;
       const hs = fs * 1.2;
-      pg.drawText(cont ? `Page ${num} (continued)` : `Page ${num}`, { x: W + pad, y: H - pad - hs, size: hs, font: bold, color: ink });
+      const title = cont ? `Page ${num} (continued)` : `Page ${num}`;
+      pg.drawText(title, { x: W + pad, y: H - pad - hs, size: hs, font: bold, color: ink });
+      // Page flags as small labels next to the heading.
+      const flags = (!cont && doc.pageFlags && doc.pageFlags[num]) || {};
+      let px = W + pad + bold.widthOfTextAtSize(title, hs) + fs * 0.7;
+      for (const [key, label, c] of [['exam', 'EXAM', [0.85, 0.62, 0.0]], ['ask', 'QUESTION', [0.2, 0.5, 0.9]]]) {
+        if (!flags[key]) continue;
+        const ls = fs * 0.72;
+        const lw = bold.widthOfTextAtSize(label, ls) + ls * 1.1;
+        pg.drawRectangle({ x: px, y: H - pad - hs - ls * 0.25, width: lw, height: ls * 1.55, color: rgb(...c) });
+        pg.drawText(label, { x: px + ls * 0.55, y: H - pad - hs + ls * 0.15, size: ls, font: bold, color: rgb(1, 1, 1) });
+        px += lw + ls * 0.6;
+      }
       return { page: pg, y: H - pad - hs * 2.1 };
     }
 

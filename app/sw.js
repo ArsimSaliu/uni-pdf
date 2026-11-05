@@ -1,7 +1,7 @@
 /* uni-pdf service worker: caches the app so it works offline once installed.
  * CACHE must change on every release (scripts/bump-version.js does this). */
 'use strict';
-const CACHE = 'uni-pdf-1.0.0';
+const CACHE = 'uni-pdf-1.1.0';
 const CORE = [
   './',
   'index.html',

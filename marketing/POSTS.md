@@ -9,6 +9,21 @@ Replace the URLs if you move to a custom domain. Change the first lines for each
 
 ---
 
+## Update post: v1.1 "study release"
+
+> **uni-pdf 1.1 is out: the study release** 🎓
+>
+> - **Flashcards from your notes:** every highlight with a note becomes a card, with spaced repetition. Diagram cards show the boxed part of the slide. Export to Anki in one click.
+> - **Ctrl+F across all slides**, with every match highlighted
+> - **Page thumbnails and outline**
+> - **Flag slides** ⭐ exam-relevant / ❓ question for the tutorial, then filter and export them
+> - **Search the notes of all your lectures** at once
+> - **One-file backup** of your whole library
+>
+> Still free, offline, and nothing gets uploaded. https://arsimsaliu.github.io/uni-pdf/
+
+---
+
 ## One-liners
 
 - **Tagline (≤60 chars):** Take lecture notes right on your slides. Free & private.

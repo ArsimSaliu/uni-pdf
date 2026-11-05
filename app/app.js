@@ -9,7 +9,9 @@
   const MIN_SCALE = 0.3;
   const MAX_SCALE = 5;
   const MAX_RENDERED_PAGES = 14;
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
+  const DAY = 864e5;
+  const SRS_DAYS = [0, 1, 3, 7, 14, 30, 60, 120];
 
   // ------------------------------------------------------------------ helpers
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -108,6 +110,7 @@
     areaMode: false,
     pendingRange: null, // text selection waiting for the toolbar
     visible: new Set(),
+    allFilter: 'all',   // All notes tab filter: 'all' | 'exam' | 'ask'
   };
 
   // ------------------------------------------------------------------ saving
@@ -172,6 +175,7 @@
         numPages: 0,
         docNote: '',
         pageNotes: {},
+        pageFlags: {},
         annotations: [],
       };
       await DB.put('files', new Blob([buf], { type: 'application/pdf' }), id);
@@ -187,7 +191,7 @@
     try {
       if (!window.UNIPDF_SAMPLE) await loadScript('sample-lecture.js');
       const { name, b64 } = window.UNIPDF_SAMPLE;
-      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const bytes = b64ToBytes(b64);
       await importFile(new File([bytes], name, { type: 'application/pdf' }));
       toast('This is a demo lecture. Select some text to highlight it, or press ? for shortcuts.', 6000);
     } catch (err) {
@@ -219,8 +223,8 @@
 
   async function applyEmbeddedNotes(rec, notes) {
     const hasNotes = (r) => r.annotations.length || Object.values(r.pageNotes || {}).some((v) => v && v.trim()) || (r.docNote || '').trim();
-    const same = JSON.stringify([rec.docNote || '', rec.pageNotes || {}, rec.annotations])
-      === JSON.stringify([notes.docNote || '', notes.pageNotes || {}, notes.annotations]);
+    const same = JSON.stringify([rec.docNote || '', rec.pageNotes || {}, rec.pageFlags || {}, rec.annotations])
+      === JSON.stringify([notes.docNote || '', notes.pageNotes || {}, notes.pageFlags || {}, notes.annotations]);
     if (same) { toast('Opened your editable PDF. Notes are up to date.', 3000); return; }
     if (hasNotes(rec)) {
       const when = notes.exportedAt ? new Date(notes.exportedAt).toLocaleString() : 'earlier';
@@ -230,6 +234,7 @@
     }
     rec.docNote = notes.docNote || '';
     rec.pageNotes = notes.pageNotes || {};
+    rec.pageFlags = notes.pageFlags || {};
     rec.annotations = notes.annotations;
     await DB.put('docs', rec);
     toast('Notes loaded from the PDF. You can keep editing them.', 3500);
@@ -249,8 +254,9 @@
     return workerReady;
   }
 
-  async function openDoc(id) {
-    if (S.doc && S.doc.id === id && S.pdf) { showReader(); return; }
+  // opts.page: jump to this page instead of where the student stopped last time.
+  async function openDoc(id, opts = {}) {
+    if (S.doc && S.doc.id === id && S.pdf) { showReader(); if (opts.page) goToPage(opts.page, false); return; }
     await flushSave();
     await closeDoc();
 
@@ -271,6 +277,7 @@
     }
 
     rec.pageNotes = rec.pageNotes || {};
+    rec.pageFlags = rec.pageFlags || {};
     rec.annotations = rec.annotations || [];
     rec.docNote = rec.docNote || '';
     rec.numPages = pdf.numPages;
@@ -291,7 +298,9 @@
       const hlLayer = el('div', 'hlLayer');
       div.appendChild(hlLayer);
       pagesEl.appendChild(div);
-      return { num: i + 1, page, div, hlLayer, baseW: vp.width, baseH: vp.height, canvas: null, textLayer: null, renderedScale: null, token: null, renderTask: null, textContent: null };
+      const findLayer = el('div', 'findLayer');
+      div.appendChild(findLayer);
+      return { num: i + 1, page, div, hlLayer, findLayer, baseW: vp.width, baseH: vp.height, canvas: null, textLayer: null, textDivs: null, renderedScale: null, token: null, renderTask: null, textContent: null };
     });
 
     $('#docTitle').textContent = baseName(rec.name);
@@ -303,9 +312,11 @@
     showReader();
     computeScale();
     layoutPages();
+    buildThumbs();
     S.pages.forEach((p) => { renderHighlights(p.num); io.observe(p.div); });
+    if (!$('#findBar').hidden && $('#findInput').value.trim()) runFind();
 
-    const start = clamp(rec.lastPage || 1, 1, pdf.numPages);
+    const start = clamp(opts.page || rec.lastPage || 1, 1, pdf.numPages);
     S.currentPage = 0;
     S.sbPage = 0;
     goToPage(start, false);
@@ -318,6 +329,8 @@
   async function closeDoc() {
     S.visible.clear();
     io.disconnect();
+    clearThumbs();
+    resetFind();
     for (const p of S.pages) if (p.renderTask) p.renderTask.cancel();
     S.pages = [];
     $('#pages').textContent = '';
@@ -343,11 +356,21 @@
   }
 
   async function renderLibrary() {
-    const docs = (await DB.all('docs')).sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
+    libDocs = (await DB.all('docs')).sort((a, b) => (b.lastOpened || 0) - (a.lastOpened || 0));
+    drawLibrary();
+  }
+
+  function drawLibrary() {
+    const docs = libDocs;
     const list = $('#libList');
     list.textContent = '';
     $('#libEmpty').hidden = docs.length > 0;
+    $('#libTools').hidden = !docs.length;
+    $('#libSearch').hidden = !docs.length;
+    const q = $('#libSearch').value.trim().toLowerCase();
+    const hitDocs = drawLibHits(q);
     for (const d of docs) {
+      if (q && !d.name.toLowerCase().includes(q) && !hitDocs.has(d.id)) continue;
       const li = el('li', 'lib-item');
       const main = el('div', 'lib-main');
       main.appendChild(el('div', 'lib-name', baseName(d.name)));
@@ -357,6 +380,12 @@
       if (d.numPages) bits.push(d.numPages + ' pages');
       bits.push(nAnn + ' highlight' + (nAnn === 1 ? '' : 's'));
       bits.push(nPageNotes + ' page note' + (nPageNotes === 1 ? '' : 's'));
+      const nExam = Object.values(d.pageFlags || {}).filter((f) => f.exam).length;
+      const nAsk = Object.values(d.pageFlags || {}).filter((f) => f.ask).length;
+      if (nExam) bits.push('⭐ ' + nExam);
+      if (nAsk) bits.push('❓ ' + nAsk);
+      const nDue = (d.annotations || []).filter((a) => a.note && a.note.trim() && (!a.srs || a.srs.due <= Date.now())).length;
+      if (nDue) bits.push('🎓 ' + nDue + ' to review');
       bits.push('opened ' + fmtDate(d.lastOpened || d.addedAt));
       main.appendChild(el('div', 'lib-meta', bits.join(' · ')));
       li.appendChild(main);
@@ -469,16 +498,19 @@
       if (p.token !== token) return;
       const tl = el('div', 'textLayer');
       p.div.insertBefore(tl, p.hlLayer);
-      await pdfjsLib.renderTextLayer({ textContentSource: p.textContent, container: tl, viewport, textDivs: [] }).promise;
+      const textDivs = [];
+      await pdfjsLib.renderTextLayer({ textContentSource: p.textContent, container: tl, viewport, textDivs }).promise;
       tl.appendChild(el('div', 'endOfContent'));
       if (p.token !== token) { tl.remove(); return; }
       if (p.textLayer) p.textLayer.remove();
       p.textLayer = tl;
+      p.textDivs = textDivs;
     } catch (err) {
       console.warn('Text layer failed for page', p.num, err);
     }
     p.renderedScale = scale;
     p.token = null;
+    renderFindHits(p);
     evictFarPages();
   }
 
@@ -492,7 +524,8 @@
       .slice(0, rendered.length - MAX_RENDERED_PAGES)
       .forEach((p) => {
         p.canvas.remove(); p.canvas = null;
-        if (p.textLayer) { p.textLayer.remove(); p.textLayer = null; }
+        if (p.textLayer) { p.textLayer.remove(); p.textLayer = null; p.textDivs = null; }
+        p.findLayer.textContent = '';
         p.renderedScale = null;
         p.div.classList.add('loading');
       });
@@ -517,6 +550,7 @@
     if (n === S.currentPage && S.sbPage === n) return;
     S.currentPage = n;
     updatePageIndicator();
+    markCurrentThumb();
     S.doc.lastPage = n;
     scheduleSave();
     if (S.sbPage !== n) { S.sbPage = n; renderPagePanel(); }
@@ -563,6 +597,7 @@
   function renderHighlights(n) {
     const p = S.pages[n - 1];
     if (!p) return;
+    updateThumb(n);
     p.hlLayer.textContent = '';
     for (const a of annotsOnPage(n)) {
       a.rects.forEach((r, i) => {
@@ -1120,6 +1155,8 @@
   function renderPagePanel() {
     if (!S.doc) return;
     $('#sbPageNum').textContent = String(S.sbPage);
+    const flags = S.doc.pageFlags[S.sbPage] || {};
+    $$('#flagExam, #flagAsk').forEach((b) => b.setAttribute('aria-pressed', String(!!flags[b.dataset.flag])));
     const pn = $('#pageNote');
     const val = S.doc.pageNotes[S.sbPage] || '';
     if (pn.value !== val) pn.value = val;
@@ -1152,13 +1189,16 @@
     const match = (s) => !q || (s || '').toLowerCase().includes(q);
     let any = false;
     for (let n = 1; n <= S.doc.numPages; n++) {
+      const flags = S.doc.pageFlags[n] || {};
+      if (S.allFilter !== 'all' && !flags[S.allFilter]) continue;
       const pnote = (S.doc.pageNotes[n] || '').trim();
       const annots = annotsOnPage(n).filter((a) => match(a.text) || match(a.note));
       const showPN = pnote && match(pnote);
-      if (!showPN && !annots.length) continue;
+      const flaggedOnly = !q && (flags.exam || flags.ask);
+      if (!showPN && !annots.length && !flaggedOnly) continue;
       any = true;
       const g = el('div', 'all-group');
-      const h = el('h4', null, 'Page ' + n);
+      const h = el('h4', null, 'Page ' + n + flagIcons(flags));
       h.addEventListener('click', () => { goToPage(n); });
       g.appendChild(h);
       if (showPN) {
@@ -1182,7 +1222,13 @@
       }
       list.appendChild(g);
     }
-    if (!any) list.appendChild(el('p', 'muted small', q ? 'Nothing matches your search.' : 'No notes yet. Notes and highlights for every page will appear here.'));
+    if (!any) {
+      const msg = q ? 'Nothing matches your search.'
+        : S.allFilter === 'exam' ? 'No pages marked ⭐ exam-relevant yet. Press E on a slide to mark it.'
+          : S.allFilter === 'ask' ? 'No pages marked ❓ yet. Press Q on a slide when something is unclear.'
+            : 'No notes yet. Notes and highlights for every page will appear here.';
+      list.appendChild(el('p', 'muted small', msg));
+    }
   }
 
   $$('.tab').forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -1190,8 +1236,10 @@
 
   $('#pageNote').addEventListener('input', (e) => {
     const v = e.target.value;
+    const had = !!(S.doc.pageNotes[S.sbPage] || '').trim();
     if (v) S.doc.pageNotes[S.sbPage] = v;
     else delete S.doc.pageNotes[S.sbPage];
+    if (had !== !!v.trim()) updateThumb(S.sbPage);
     scheduleSave();
   });
   $('#docNote').addEventListener('input', (e) => {
@@ -1228,16 +1276,672 @@
     });
   })();
 
+  // ------------------------------------------------------------------ page flags (⭐ exam / ❓ ask)
+  const FLAG_ICONS = { exam: '⭐', ask: '❓' };
+  function flagIcons(flags) {
+    const icons = Object.keys(FLAG_ICONS).filter((k) => flags && flags[k]).map((k) => FLAG_ICONS[k]).join('');
+    return icons ? ' ' + icons : '';
+  }
+
+  function toggleFlag(kind, n = S.sbPage) {
+    if (!S.doc || !n) return;
+    const f = { ...(S.doc.pageFlags[n] || {}) };
+    if (f[kind]) delete f[kind];
+    else f[kind] = true;
+    if (Object.keys(f).length) S.doc.pageFlags[n] = f;
+    else delete S.doc.pageFlags[n];
+    scheduleSave();
+    updateThumb(n);
+    if (n === S.sbPage) {
+      const flags = S.doc.pageFlags[n] || {};
+      $$('#flagExam, #flagAsk').forEach((b) => b.setAttribute('aria-pressed', String(!!flags[b.dataset.flag])));
+    }
+    if (S.tab === 'all') renderAllPanel();
+    const on = !!f[kind];
+    toast(kind === 'exam'
+      ? (on ? `Page ${n} marked ⭐ exam-relevant.` : `Page ${n}: exam mark removed.`)
+      : (on ? `Page ${n} marked ❓: you have a question about it.` : `Page ${n}: question mark removed.`));
+  }
+
+  // ------------------------------------------------------------------ thumbnails & outline
+  const thumbsEl = $('#thumbs');
+  const thumbList = $('#thumbList');
+  const THUMB_W = 132;
+  let thumbIO = null;
+  const thumbTasks = new Set();
+
+  function clearThumbs() {
+    if (thumbIO) thumbIO.disconnect();
+    thumbIO = null;
+    for (const t of thumbTasks) t.cancel();
+    thumbTasks.clear();
+    thumbList.textContent = '';
+    $('#outlineList').textContent = '';
+    $('#thumbsTabs').hidden = true;
+    switchThumbTab('pages');
+  }
+
+  function buildThumbs() {
+    thumbList.textContent = '';
+    thumbIO = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        renderThumb(S.pages[+e.target.dataset.page - 1]);
+        thumbIO.unobserve(e.target);
+      }
+    }, { root: thumbList, rootMargin: '400px 0px' });
+    for (const p of S.pages) {
+      const b = el('button', 'thumb');
+      b.dataset.page = String(p.num);
+      b.setAttribute('aria-label', 'Page ' + p.num);
+      const img = el('div', 'thumb-img');
+      img.style.aspectRatio = `${p.baseW} / ${p.baseH}`;
+      b.appendChild(img);
+      const lab = el('div', 'thumb-label');
+      lab.appendChild(el('span', 'thumb-num', String(p.num)));
+      lab.appendChild(el('span', 'thumb-badges'));
+      b.appendChild(lab);
+      b.addEventListener('click', () => goToPage(p.num));
+      p.thumb = b;
+      thumbList.appendChild(b);
+      thumbIO.observe(b);
+    }
+    loadOutline(S.pdf);
+  }
+
+  async function renderThumb(p) {
+    if (!p || p.thumbDone || !p.thumb) return;
+    p.thumbDone = true;
+    const scale = (THUMB_W * Math.min(window.devicePixelRatio || 1, 2)) / p.baseW;
+    const vp = p.page.getViewport({ scale });
+    const c = document.createElement('canvas');
+    c.width = Math.floor(vp.width);
+    c.height = Math.floor(vp.height);
+    const task = p.page.render({ canvasContext: c.getContext('2d'), viewport: vp });
+    thumbTasks.add(task);
+    try {
+      await task.promise;
+    } catch (err) {
+      p.thumbDone = false;
+      return;
+    } finally {
+      thumbTasks.delete(task);
+    }
+    p.thumb.firstChild.appendChild(c);
+  }
+
+  function updateThumb(n) {
+    const p = S.pages[n - 1];
+    if (!p || !p.thumb || !S.doc) return;
+    const notes = S.doc.annotations.filter((a) => a.page === n).length + ((S.doc.pageNotes[n] || '').trim() ? 1 : 0);
+    $('.thumb-badges', p.thumb).textContent = flagIcons(S.doc.pageFlags[n]).trim() + (notes ? ` ✎${notes}` : '');
+  }
+
+  function markCurrentThumb() {
+    $$('.thumb.current', thumbList).forEach((t) => t.classList.remove('current'));
+    const p = S.pages[S.currentPage - 1];
+    if (!p || !p.thumb) return;
+    p.thumb.classList.add('current');
+    if (thumbsEl.hidden || thumbList.hidden) return;
+    const t = p.thumb;
+    if (t.offsetTop < thumbList.scrollTop) thumbList.scrollTop = t.offsetTop - 8;
+    else if (t.offsetTop + t.offsetHeight > thumbList.scrollTop + thumbList.clientHeight) {
+      thumbList.scrollTop = t.offsetTop + t.offsetHeight - thumbList.clientHeight + 8;
+    }
+  }
+
+  function setThumbsOpen(on) {
+    thumbsEl.hidden = !on;
+    $('#btnThumbs').setAttribute('aria-pressed', String(on));
+    $('#btnThumbs').classList.toggle('active', on);
+    try { localStorage.setItem('thumbsOpen', on ? '1' : '0'); } catch (_) { /* ignore */ }
+    if (on) requestAnimationFrame(markCurrentThumb);
+  }
+
+  function switchThumbTab(t) {
+    $$('.ttab').forEach((b) => b.classList.toggle('active', b.dataset.ttab === t));
+    thumbList.hidden = t !== 'pages';
+    $('#outlineList').hidden = t !== 'outline';
+    if (t === 'pages') requestAnimationFrame(markCurrentThumb);
+  }
+
+  async function loadOutline(pdf) {
+    let outline = null;
+    try { outline = await pdf.getOutline(); } catch (_) { /* no outline */ }
+    if (pdf !== S.pdf || !outline || !outline.length) return;
+    const root = $('#outlineList');
+    root.textContent = '';
+    const build = (items, depth) => {
+      for (const it of items) {
+        const b = el('button', 'outline-item', it.title || '(untitled)');
+        b.style.paddingLeft = 10 + depth * 14 + 'px';
+        b.addEventListener('click', async () => {
+          const n = await destPage(pdf, it.dest);
+          if (n && pdf === S.pdf) goToPage(n);
+        });
+        root.appendChild(b);
+        if (it.items && it.items.length) build(it.items, depth + 1);
+      }
+    };
+    build(outline, 0);
+    $('#thumbsTabs').hidden = false;
+  }
+
+  async function destPage(pdf, dest) {
+    try {
+      if (typeof dest === 'string') dest = await pdf.getDestination(dest);
+      if (!Array.isArray(dest)) return 0;
+      const ref = dest[0];
+      return (typeof ref === 'number' ? ref : await pdf.getPageIndex(ref)) + 1;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ------------------------------------------------------------------ search in the slides
+  // The browser's own Ctrl+F only sees pages that are rendered, so search the PDF text directly.
+  const F = { q: '', matches: [], idx: -1, run: 0 };
+  const findBar = $('#findBar');
+  const findInput = $('#findInput');
+
+  // Lower-case character by character so offsets stay aligned with the original text.
+  function fold(str) {
+    let out = '';
+    for (const ch of str) {
+      const l = ch.toLowerCase();
+      out += l.length === ch.length ? l : ch;
+    }
+    return out.replace(/\s/g, ' ');
+  }
+
+  // A page's text as one string, plus where each text-layer span starts in it.
+  function pageTextIndex(p) {
+    if (p.textIndex) return p.textIndex;
+    let text = '';
+    const starts = [];
+    const lens = [];
+    for (const it of p.textContent.items) {
+      if (it.str === undefined) continue;
+      starts.push(text.length);
+      lens.push(it.str.length);
+      text += it.str;
+      if (it.hasEOL) text += ' ';
+    }
+    p.textIndex = { folded: fold(text), starts, lens };
+    return p.textIndex;
+  }
+
+  function locate(p, idx, off, isEnd) {
+    for (let i = 0; i < idx.starts.length; i++) {
+      const a = idx.starts[i];
+      const b = a + idx.lens[i];
+      if (isEnd ? (off > a && off <= b) : (off >= a && off < b)) {
+        const t = p.textDivs[i] && p.textDivs[i].firstChild;
+        return t ? [t, Math.min(off - a, t.length)] : [null, 0];
+      }
+    }
+    return [null, 0];
+  }
+
+  function renderFindHits(p) {
+    if (!p || !p.findLayer) return;
+    p.findLayer.textContent = '';
+    if (!F.q || !F.matches.length || !p.textDivs || !p.textContent) return;
+    const idx = pageTextIndex(p);
+    const pr = p.div.getBoundingClientRect();
+    F.matches.forEach((m, k) => {
+      if (m.page !== p.num) return;
+      const [sn, so] = locate(p, idx, m.start, false);
+      const [en, eo] = locate(p, idx, m.end, true);
+      if (!sn || !en) return;
+      const range = document.createRange();
+      try { range.setStart(sn, so); range.setEnd(en, eo); } catch (_) { return; }
+      const raw = Array.from(range.getClientRects())
+        .filter((r) => r.width > 0.5 && r.height > 0.5)
+        .map((r) => ({ x: r.left - pr.left, y: r.top - pr.top, w: r.width, h: r.height }));
+      for (const q of mergeRects(raw)) {
+        const d = el('div', 'find-hit' + (k === F.idx ? ' current' : ''));
+        d.dataset.k = String(k);
+        d.style.left = (q.x / pr.width) * 100 + '%';
+        d.style.top = (q.y / pr.height) * 100 + '%';
+        d.style.width = (q.w / pr.width) * 100 + '%';
+        d.style.height = (q.h / pr.height) * 100 + '%';
+        p.findLayer.appendChild(d);
+      }
+    });
+  }
+
+  function updateFindCount() {
+    const n = F.matches.length;
+    $('#findCount').textContent = !F.q ? '' : n ? `${F.idx + 1} of ${n}` : 'No matches';
+    findInput.classList.toggle('no-match', !!F.q && !n);
+  }
+
+  async function runFind() {
+    const q = fold(findInput.value.trim()).replace(/ +/g, ' ');
+    const run = ++F.run;
+    F.q = q;
+    F.matches = [];
+    F.idx = -1;
+    S.pages.forEach((p) => { p.findLayer.textContent = ''; });
+    if (!q || !S.doc) { updateFindCount(); return; }
+    $('#findCount').textContent = 'Searching…';
+    const pages = S.pages;
+    for (const p of pages) {
+      if (!p.textContent) {
+        try { p.textContent = await p.page.getTextContent(); } catch (_) { continue; }
+      }
+      if (run !== F.run || pages !== S.pages) return;
+      const { folded } = pageTextIndex(p);
+      for (let i = folded.indexOf(q); i >= 0; i = folded.indexOf(q, i + q.length)) {
+        F.matches.push({ page: p.num, start: i, end: i + q.length });
+      }
+    }
+    if (!F.matches.length) { updateFindCount(); return; }
+    const from = F.matches.findIndex((m) => m.page >= S.currentPage);
+    S.pages.forEach(renderFindHits);
+    showMatch(from < 0 ? 0 : from);
+  }
+
+  async function showMatch(k) {
+    if (!F.matches.length) return;
+    F.idx = (k + F.matches.length) % F.matches.length;
+    updateFindCount();
+    const m = F.matches[F.idx];
+    const p = S.pages[m.page - 1];
+    $$('.find-hit.current').forEach((d) => d.classList.remove('current'));
+    if (S.currentPage !== m.page || !p.textDivs) goToPage(m.page, false);
+    for (let i = 0; i < 80 && !(p.textDivs && p.renderedScale === S.scale); i++) await new Promise((r) => setTimeout(r, 50));
+    if (F.matches[F.idx] !== m) return;
+    renderFindHits(p);
+    const hit = $('.find-hit.current', p.findLayer);
+    if (!hit) return;
+    const y = p.div.offsetTop + hit.offsetTop;
+    if (y < viewer.scrollTop + 30 || y + hit.offsetHeight > viewer.scrollTop + viewer.clientHeight - 30) {
+      S.navLock = true;
+      clearTimeout(navLockTimer);
+      navLockTimer = setTimeout(() => { S.navLock = false; }, 100);
+      viewer.scrollTop = y - viewer.clientHeight * 0.35;
+    }
+    const x = p.div.offsetLeft + hit.offsetLeft;
+    if (x < viewer.scrollLeft || x > viewer.scrollLeft + viewer.clientWidth - 40) viewer.scrollLeft = x - 40;
+    if (S.currentPage !== m.page) setCurrentPage(m.page);
+  }
+
+  function openFind() {
+    if (!S.doc) return;
+    const sel = selectionInTextLayer();
+    findBar.hidden = false;
+    if (sel) {
+      const t = sel.toString().replace(/\s+/g, ' ').trim();
+      if (t && t.length < 80) findInput.value = t;
+    }
+    findInput.focus();
+    findInput.select();
+    if (findInput.value.trim() && fold(findInput.value.trim()).replace(/ +/g, ' ') !== F.q) runFind();
+  }
+
+  function resetFind() {
+    F.run++;
+    F.q = '';
+    F.matches = [];
+    F.idx = -1;
+    updateFindCount();
+  }
+
+  function closeFind() {
+    findBar.hidden = true;
+    resetFind();
+    S.pages.forEach((p) => { p.findLayer.textContent = ''; });
+    viewer.focus({ preventScroll: true });
+  }
+
+  let findTimer = 0;
+  findInput.addEventListener('input', () => {
+    clearTimeout(findTimer);
+    findTimer = setTimeout(runFind, 250);
+  });
+  findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(findTimer);
+      if (fold(findInput.value.trim()).replace(/ +/g, ' ') !== F.q) runFind();
+      else showMatch(F.idx + (e.shiftKey ? -1 : 1));
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeFind();
+    }
+  });
+  $('#findNext').addEventListener('click', () => showMatch(F.idx + 1));
+  $('#findPrev').addEventListener('click', () => showMatch(F.idx - 1));
+  $('#findClose').addEventListener('click', closeFind);
+  $('#btnFind').addEventListener('click', () => (findBar.hidden ? openFind() : closeFind()));
+
+  // ------------------------------------------------------------------ study mode (flashcards)
+  // Every highlight with a note is a card. Simple spaced repetition (Leitner boxes).
+  const studyDialog = $('#studyDialog');
+  const ST = { queue: [], cur: null, shown: false, reviewed: 0, again: 0, dir: 'hl', crops: new Map() };
+  const studyCards = () => S.doc.annotations.filter(hasNote);
+  const isDue = (a) => !a.srs || a.srs.due <= Date.now();
+  const onExamPage = (a) => !!(S.doc.pageFlags[a.page] || {}).exam;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+  function showStudyPane(which) {
+    $('#studySetup').hidden = which !== 'setup';
+    $('#studyCard').hidden = which !== 'card';
+    $('#studyDone').hidden = which !== 'done';
+  }
+
+  function openStudy() {
+    if (!S.doc) return;
+    flushSave();
+    hideSelToolbar();
+    const all = studyCards();
+    const due = all.filter(isDue).length;
+    const exam = all.filter(onExamPage).length;
+    $('#studySummary').textContent = all.length
+      ? `${plural(all.length, 'card')} in this lecture · ${due} due for review${exam ? ` · ${exam} on ⭐ exam pages` : ''}`
+      : 'No cards yet. Highlight something on a slide and write a note about it, and it becomes a flashcard.';
+    $('#studyOptions').hidden = !all.length;
+    $('#studyScope').value = due ? 'due' : 'all';
+    $('#studyProgress').textContent = '';
+    showStudyPane('setup');
+    if (!studyDialog.open) studyDialog.showModal();
+    if (all.length) $('#studyStart').focus();
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function startStudy() {
+    const scope = $('#studyScope').value;
+    ST.dir = $('#studyDir').value;
+    let list = studyCards();
+    if (scope === 'due') list = list.filter(isDue);
+    if (scope === 'exam') list = list.filter(onExamPage);
+    if (!list.length) {
+      toast(scope === 'due' ? 'Nothing is due right now. Choose "All cards" to practise anyway.' : 'No cards on ⭐ exam pages yet.', 4000);
+      return;
+    }
+    ST.queue = shuffle(list.slice());
+    ST.total = list.length;
+    ST.reviewed = 0;
+    ST.again = 0;
+    nextCard();
+  }
+
+  async function cropArea(a) {
+    const key = a.id + JSON.stringify(a.rects[0]);
+    if (ST.crops.has(key)) return ST.crops.get(key);
+    const p = S.pages[a.page - 1];
+    const [x, y, w, h] = a.rects[0];
+    const scale = clamp(900 / Math.max(1, w * p.baseW), 0.5, 4);
+    const vp = p.page.getViewport({ scale });
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * vp.width));
+    c.height = Math.max(1, Math.round(h * vp.height));
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    await p.page.render({ canvasContext: ctx, viewport: vp, transform: [1, 0, 0, 1, -x * vp.width, -y * vp.height] }).promise;
+    const url = c.toDataURL('image/png');
+    ST.crops.set(key, url);
+    return url;
+  }
+
+  function fillFace(box, a, kind) {
+    box.textContent = '';
+    if (kind === 'note') {
+      box.appendChild(el('div', 'face-note', a.note.trim()));
+      return;
+    }
+    if (a.type === 'area') {
+      const img = el('img', 'face-img');
+      img.alt = 'Area on page ' + a.page;
+      box.appendChild(img);
+      cropArea(a).then((url) => { img.src = url; }).catch(() => { img.replaceWith(el('div', 'face-quote', '▭ Area on page ' + a.page)); });
+    } else {
+      box.appendChild(el('div', 'face-quote', `“${a.text}”`));
+    }
+  }
+
+  function nextCard() {
+    const a = ST.queue.shift();
+    if (!a) { finishStudy(); return; }
+    ST.cur = a;
+    ST.shown = false;
+    showStudyPane('card');
+    $('#studyProgress').textContent = `${ST.queue.length + 1} left`;
+    $('#cardWhere').textContent = 'Page ' + a.page + (onExamPage(a) ? ' · ⭐ exam' : '');
+    fillFace($('#cardFront'), a, ST.dir === 'hl' ? 'hl' : 'note');
+    fillFace($('#cardBack'), a, ST.dir === 'hl' ? 'note' : 'hl');
+    $('#cardBack').hidden = true;
+    $('#cardReveal').hidden = false;
+    $('#cardGrade').hidden = true;
+    $('#btnReveal').focus();
+  }
+
+  function revealCard() {
+    if (!ST.cur || ST.shown) return;
+    ST.shown = true;
+    $('#cardBack').hidden = false;
+    $('#cardReveal').hidden = true;
+    $('#cardGrade').hidden = false;
+    $('#cardGrade [data-grade="good"]').focus();
+  }
+
+  function gradeCard(g) {
+    const a = ST.cur;
+    if (!a || !ST.shown) return;
+    const box = a.srs ? a.srs.box : 0;
+    const nb = clamp(g === 'again' ? 0 : g === 'good' ? box + 1 : box + 2, 0, SRS_DAYS.length - 1);
+    a.srs = { box: nb, due: g === 'again' ? Date.now() : Date.now() + SRS_DAYS[nb] * DAY, last: Date.now() };
+    ST.reviewed++;
+    if (g === 'again') {
+      ST.again++;
+      ST.queue.splice(Math.min(3, ST.queue.length), 0, a); // show it again in a moment
+    }
+    scheduleSave();
+    nextCard();
+  }
+
+  function finishStudy() {
+    ST.cur = null;
+    showStudyPane('done');
+    $('#studyProgress').textContent = '';
+    const future = studyCards().filter((a) => !isDue(a)).map((a) => a.srs.due);
+    let when = '';
+    if (future.length) {
+      const days = Math.max(1, Math.round((Math.min(...future) - Date.now()) / DAY));
+      when = days === 1 ? ' Next review: tomorrow.' : ` Next review: in ${days} days.`;
+    }
+    $('#studyDoneText').textContent = `🎉 Done! You reviewed ${plural(ST.reviewed, 'card')}`
+      + (ST.again ? ` (${ST.again} needed another try)` : '') + '.' + when;
+    $('#studyFinish').focus();
+  }
+
+  function exportAnki() {
+    const d = S.doc;
+    const list = studyCards().sort((a, b) => a.page - b.page);
+    if (!list.length) { toast('No flashcards yet: write a note on a highlight first.', 4000); return; }
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\t/g, ' ').replace(/\r?\n/g, '<br>');
+    const deck = baseName(d.name).replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || 'lecture';
+    const lines = ['#separator:tab', '#html:true', '#tags column:3'];
+    for (const a of list) {
+      const front = (a.text ? esc(a.text) : `<i>Area on page ${a.page}</i>`) + `<br><small>${esc(baseName(d.name))}, page ${a.page}</small>`;
+      const tags = [`uni-pdf::${deck}`, `page_${a.page}`].concat(onExamPage(a) ? ['exam'] : []).join(' ');
+      lines.push(`${front}\t${esc(a.note.trim())}\t${tags}`);
+    }
+    download(`${baseName(d.name)} - flashcards (Anki).txt`, lines.join('\n') + '\n', 'text/plain');
+    toast(`${plural(list.length, 'flashcard')} saved. In Anki: File → Import, then choose this file.`, 5000);
+  }
+
+  $('#btnStudy').addEventListener('click', openStudy);
+  $('#studyStart').addEventListener('click', startStudy);
+  $('#studyClose').addEventListener('click', () => studyDialog.close());
+  $('#studyFinish').addEventListener('click', () => studyDialog.close());
+  $('#studyAgain').addEventListener('click', openStudy);
+  $('#btnReveal').addEventListener('click', revealCard);
+  $$('#cardGrade [data-grade]').forEach((b) => b.addEventListener('click', () => gradeCard(b.dataset.grade)));
+  $('#cardOpen').addEventListener('click', () => {
+    const a = ST.cur;
+    studyDialog.close();
+    if (a) { selectAnnot(a.id, false); scrollToAnnot(a); }
+  });
+  studyDialog.addEventListener('keydown', (e) => {
+    if ($('#studyCard').hidden || e.target.tagName === 'SELECT') return;
+    if ((e.key === ' ' || e.key === 'Enter') && !ST.shown) { e.preventDefault(); revealCard(); }
+    else if (ST.shown && ['1', '2', '3'].includes(e.key)) { e.preventDefault(); gradeCard(['again', 'good', 'easy'][+e.key - 1]); }
+  });
+  studyDialog.addEventListener('close', () => { ST.queue = []; ST.cur = null; });
+
+  // ------------------------------------------------------------------ library: search + full backup
+  let libDocs = [];
+  const b64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+  function snippet(text, q) {
+    const t = String(text).replace(/\s+/g, ' ').trim();
+    if (t.length <= 160) return t;
+    const start = Math.max(0, t.toLowerCase().indexOf(q) - 60);
+    return (start > 0 ? '…' : '') + t.slice(start, start + 160) + (start + 160 < t.length ? '…' : '');
+  }
+
+  function libraryHits(q) {
+    const hits = [];
+    const has = (t) => (t || '').toLowerCase().includes(q);
+    for (const d of libDocs) {
+      if (has(d.docNote)) hits.push({ d, page: 0, text: d.docNote, label: 'Lecture notes' });
+      for (const [n, t] of Object.entries(d.pageNotes || {})) if (has(t)) hits.push({ d, page: +n, text: t });
+      for (const a of d.annotations || []) {
+        if (has(a.note) || has(a.text)) hits.push({ d, page: a.page, text: has(a.note) ? a.note : a.text });
+      }
+    }
+    return hits.sort((x, y) => (x.d.name.localeCompare(y.d.name)) || (x.page - y.page));
+  }
+
+  function drawLibHits(q) {
+    const box = $('#libHits');
+    box.textContent = '';
+    box.hidden = !q;
+    if (!q) return new Set();
+    const hits = libraryHits(q);
+    box.appendChild(el('div', 'lib-hits-head small muted', hits.length ? `${hits.length} match${hits.length === 1 ? '' : 'es'} in your notes` : 'No notes match.'));
+    for (const h of hits.slice(0, 100)) {
+      const it = el('button', 'lib-hit');
+      it.appendChild(el('div', 'lib-hit-where', baseName(h.d.name) + ' · ' + (h.label || 'page ' + h.page)));
+      const body = el('div', 'lib-hit-text');
+      appendMarked(body, snippet(h.text, q), q);
+      it.appendChild(body);
+      it.addEventListener('click', async () => {
+        await openDoc(h.d.id, h.page ? { page: h.page } : {});
+        if (!h.page) { showSidebar(); switchTab('doc'); }
+      });
+      box.appendChild(it);
+    }
+    return new Set(hits.map((h) => h.d.id));
+  }
+
+  async function backupAll() {
+    await flushSave();
+    const docs = await DB.all('docs');
+    if (!docs.length) return;
+    toast('Preparing backup…', 60000);
+    try {
+      const parts = [`{"app":"uni-pdf-library","version":1,"exportedAt":${JSON.stringify(new Date().toISOString())},"docs":[`];
+      for (let i = 0; i < docs.length; i++) {
+        const blob = await DB.get('files', docs[i].id);
+        const pdf = blob ? await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result).split(',')[1]);
+          r.onerror = () => reject(r.error);
+          r.readAsDataURL(blob);
+        }) : null;
+        parts.push((i ? ',' : '') + JSON.stringify({ rec: docs[i], pdf }));
+      }
+      parts.push(']}');
+      download(`uni-pdf backup ${new Date().toISOString().slice(0, 10)}.json`, new Blob(parts), 'application/json');
+      toast(`Backed up ${plural(docs.length, 'lecture')} with all notes. Keep the file somewhere safe.`, 5000);
+    } catch (err) {
+      toast('Backup failed: ' + err.message, 5000);
+    }
+  }
+
+  async function restoreAll(file) {
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.app === 'lecture-pdf-notes') throw new Error('this is a backup of a single lecture. Open that PDF, then use Export → Restore notes from backup.');
+      if (data.app !== 'uni-pdf-library' || !Array.isArray(data.docs)) throw new Error('not a uni-pdf full backup file.');
+      const existing = new Map((await DB.all('docs')).map((d) => [d.id, d]));
+      const notesOf = (r) => JSON.stringify([r.docNote || '', r.pageNotes || {}, r.pageFlags || {}, r.annotations || []]);
+      const conflicts = data.docs.filter(({ rec }) => rec && existing.has(rec.id) && notesOf(existing.get(rec.id)) !== notesOf(rec));
+      let replace = true;
+      if (conflicts.length) {
+        replace = confirm(`${plural(conflicts.length, 'lecture')} in the backup ${conflicts.length === 1 ? 'is' : 'are'} already in your library with different notes.\n\n`
+          + 'OK: replace them with the notes from the backup\nCancel: keep your current notes (only add missing lectures)');
+      }
+      if (S.doc) { clearTimeout(saveTimer); saveTimer = null; await closeDoc(); }
+      let added = 0;
+      let updated = 0;
+      for (const { rec, pdf } of data.docs) {
+        if (!rec || !rec.id) continue;
+        const hasFile = !!(await DB.get('files', rec.id));
+        if (!hasFile && !pdf) continue;
+        if (!hasFile) await DB.put('files', new Blob([b64ToBytes(pdf)], { type: 'application/pdf' }), rec.id);
+        const had = existing.get(rec.id);
+        if (!had) { await DB.put('docs', rec); added++; }
+        else if (replace && notesOf(had) !== notesOf(rec)) {
+          await DB.put('docs', { ...had, docNote: rec.docNote || '', pageNotes: rec.pageNotes || {}, pageFlags: rec.pageFlags || {}, annotations: rec.annotations || [] });
+          updated++;
+        }
+      }
+      await renderLibrary();
+      toast(`Backup restored: ${added} added, ${updated} updated.`, 4000);
+    } catch (err) {
+      toast('Restore failed: ' + err.message, 6000);
+    }
+  }
+
+  let libTimer = 0;
+  $('#libSearch').addEventListener('input', () => { clearTimeout(libTimer); libTimer = setTimeout(drawLibrary, 150); });
+  $('#btnBackupAll').addEventListener('click', backupAll);
+  $('#btnRestoreAll').addEventListener('click', () => $('#restoreAllInput').click());
+  $('#restoreAllInput').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (f) restoreAll(f);
+  });
+
+  // Panels: thumbnails, flags, filter chips
+  $('#btnThumbs').addEventListener('click', () => setThumbsOpen(thumbsEl.hidden));
+  $$('.ttab').forEach((b) => b.addEventListener('click', () => switchThumbTab(b.dataset.ttab)));
+  try { if (localStorage.getItem('thumbsOpen') === '1') setThumbsOpen(true); } catch (_) { /* ignore */ }
+  $$('#flagExam, #flagAsk').forEach((b) => b.addEventListener('click', () => toggleFlag(b.dataset.flag)));
+  $$('.chip[data-filter]').forEach((c) => c.addEventListener('click', () => {
+    S.allFilter = c.dataset.filter;
+    $$('.chip[data-filter]').forEach((x) => x.classList.toggle('active', x === c));
+    renderAllPanel();
+  }));
+
   // ------------------------------------------------------------------ export / import
   function exportMarkdown() {
     const d = S.doc;
     const lines = [`# ${baseName(d.name)}`, '', `_Exported ${new Date().toLocaleString()}_`, ''];
     if (d.docNote.trim()) lines.push('## Lecture notes', '', d.docNote.trim(), '');
+    const flagged = (k) => Object.keys(d.pageFlags).filter((n) => d.pageFlags[n][k]).map(Number).sort((a, b) => a - b);
+    if (flagged('exam').length) lines.push(`**⭐ Exam-relevant:** page ${flagged('exam').join(', ')}`, '');
+    if (flagged('ask').length) lines.push(`**❓ Questions to ask:** page ${flagged('ask').join(', ')}`, '');
     for (let n = 1; n <= d.numPages; n++) {
       const pn = (d.pageNotes[n] || '').trim();
       const annots = annotsOnPage(n);
-      if (!pn && !annots.length) continue;
-      lines.push(`## Page ${n}`, '');
+      const flags = d.pageFlags[n] || {};
+      if (!pn && !annots.length && !flags.exam && !flags.ask) continue;
+      lines.push(`## Page ${n}${flagIcons(flags)}`, '');
       if (pn) lines.push(pn, '');
       for (const a of annots) {
         lines.push(a.text ? `> ${a.text}` : '> _(area highlight)_');
@@ -1251,7 +1955,7 @@
   function notesPayload(d) {
     return {
       app: 'lecture-pdf-notes', version: 1, exportedAt: new Date().toISOString(),
-      docId: d.id, name: d.name, docNote: d.docNote, pageNotes: d.pageNotes, annotations: d.annotations,
+      docId: d.id, name: d.name, docNote: d.docNote, pageNotes: d.pageNotes, pageFlags: d.pageFlags, annotations: d.annotations,
     };
   }
 
@@ -1293,6 +1997,7 @@
       if (!confirm('Replace the current notes of this PDF with the backup?')) return;
       S.doc.docNote = data.docNote || '';
       S.doc.pageNotes = data.pageNotes || {};
+      S.doc.pageFlags = data.pageFlags || {};
       S.doc.annotations = data.annotations;
       $('#docNote').value = S.doc.docNote;
       S.pages.forEach((p) => renderHighlights(p.num));
@@ -1315,6 +2020,7 @@
     else if (k === 'pdf-edit') exportPdf(true);
     else if (k === 'md') exportMarkdown();
     else if (k === 'json') exportJson();
+    else if (k === 'anki') exportAnki();
     else $('#importInput').click();
   }));
   $('#importInput').addEventListener('change', (e) => {
@@ -1389,8 +2095,16 @@
       if (S.areaMode) setAreaMode(false);
       hideSelToolbar();
       setMenu(false);
+      if (!findBar.hidden && !isTyping(e.target)) closeFind();
     }
-    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || helpDialog.open) return;
+    const readerOpen = S.doc && !$('#reader').hidden && !helpDialog.open && !studyDialog.open;
+    if (readerOpen && (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(); return; }
+    if (readerOpen && F.matches.length && (e.key === 'F3' || ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')))) {
+      e.preventDefault();
+      showMatch(F.idx + (e.shiftKey ? -1 : 1));
+      return;
+    }
+    if (isTyping(e.target) || e.ctrlKey || e.metaKey || e.altKey || helpDialog.open || studyDialog.open) return;
     if (e.key === '?') { e.preventDefault(); openHelp(); return; }
     if (e.key === 'o' || e.key === 'O') { e.preventDefault(); $('#fileInput').click(); return; }
     if (!S.doc || $('#reader').hidden) return;
@@ -1410,6 +2124,10 @@
     else if (k === 'a' || k === 'A') setAreaMode(!S.areaMode);
     else if (k === '\\') $('#btnSidebar').click();
     else if (k === 'l' || k === 'L') showLibrary();
+    else if (k === 't' || k === 'T') setThumbsOpen(thumbsEl.hidden);
+    else if (k === 'e' || k === 'E') toggleFlag('exam');
+    else if (k === 'q' || k === 'Q') toggleFlag('ask');
+    else if (k === 's' || k === 'S') { e.preventDefault(); openStudy(); }
   });
 
   window.addEventListener('beforeunload', () => { if (saveTimer) flushSave(); });

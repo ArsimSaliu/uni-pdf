@@ -21,9 +21,10 @@
         <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
       </label>
     </div>
-    <span id="docTitle" class="doc-title"></span>
+    <span id="docTitle" class="doc-title doc-only"></span>
 
     <div class="tb-group doc-only">
+      <button id="btnThumbs" class="btn icon" title="Page thumbnails and outline (T)" aria-label="Page thumbnails and outline" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="1.5" y="9" width="5" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 4h5.5M9 11h5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
       <button id="btnPrev" class="btn icon" title="Previous page (←)" aria-label="Previous page">‹</button>
       <input id="pageInput" class="page-input" type="text" inputmode="numeric" value="1" aria-label="Page number">
       <span class="muted">/ <span id="pageCount">0</span></span>
@@ -34,17 +35,20 @@
       <button id="btnZoomOut" class="btn icon" title="Zoom out (-)" aria-label="Zoom out">−</button>
       <button id="btnZoomLabel" class="btn zoom-label" title="Fit to width (0)">100%</button>
       <button id="btnZoomIn" class="btn icon" title="Zoom in (+)" aria-label="Zoom in">+</button>
-      <button id="btnArea" class="btn" title="Area note: drag a box over a diagram or image (A). Alt+drag also works.">▭ Area</button>
+      <button id="btnArea" class="btn" title="Area note: drag a box over a diagram or image (A). Alt+drag also works.">▭<span class="lbl"> Area</span></button>
+      <button id="btnFind" class="btn icon" title="Search in the slides (Ctrl+F)" aria-label="Search in the slides"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     </div>
 
     <div class="tb-group">
       <span id="saveState" class="save-state muted"></span>
+      <button id="btnStudy" class="btn doc-only" title="Study your notes as flashcards (S)">🎓<span class="lbl"> Study</span></button>
       <div class="menu-wrap doc-only">
         <button id="btnExport" class="btn" aria-haspopup="menu" aria-expanded="false">Export ▾</button>
         <div id="exportMenu" class="menu" role="menu" hidden>
           <button role="menuitem" data-export="pdf">PDF with highlights &amp; notes (.pdf)</button>
           <button role="menuitem" data-export="pdf-edit">Editable PDF (open it here again to keep editing)</button>
           <button role="menuitem" data-export="md">Notes as Markdown (.md)</button>
+          <button role="menuitem" data-export="anki">Flashcards for Anki (.txt)</button>
           <button role="menuitem" data-export="json">Backup this PDF's notes (.json)</button>
           <button role="menuitem" data-export="import">Restore notes from backup…</button>
         </div>
@@ -78,8 +82,17 @@
           <button id="btnSample" class="btn">Try the demo lecture</button>
         </div>
       </div>
-      <h2 class="lib-heading">Recent PDFs</h2>
+      <div class="lib-bar">
+        <h2 class="lib-heading">Your lectures</h2>
+        <input id="libSearch" class="search lib-search" type="search" placeholder="Search lectures and all your notes…" aria-label="Search lectures and notes">
+      </div>
+      <div id="libHits" class="lib-hits" hidden></div>
       <ul id="libList" class="lib-list"></ul>
+      <div id="libTools" class="lib-tools small" hidden>
+        <button id="btnBackupAll" class="linklike">Back up everything</button> (all PDFs and notes in one file)
+        · <button id="btnRestoreAll" class="linklike">Restore a full backup…</button>
+        <input id="restoreAllInput" type="file" accept=".json,application/json" hidden>
+      </div>
       <div id="libEmpty" class="lib-empty">
         <p class="muted">No PDFs yet. Here's how it works:</p>
         <ol class="howto">
@@ -99,8 +112,25 @@
 
     <!-- Reader -->
     <section id="reader" class="reader" hidden>
-      <div id="viewer" class="viewer" tabindex="-1">
-        <div id="pages" class="pages"></div>
+      <aside id="thumbs" class="thumbs" hidden aria-label="Pages">
+        <nav class="thumbs-tabs" id="thumbsTabs" hidden>
+          <button class="ttab active" data-ttab="pages">Pages</button>
+          <button class="ttab" data-ttab="outline">Outline</button>
+        </nav>
+        <div id="thumbList" class="thumb-list"></div>
+        <div id="outlineList" class="outline-list" hidden></div>
+      </aside>
+      <div class="viewer-wrap">
+        <div id="findBar" class="find-bar" hidden role="search">
+          <input id="findInput" type="search" placeholder="Search in the slides…" aria-label="Search in the slides">
+          <span id="findCount" class="find-count muted small"></span>
+          <button id="findPrev" class="btn icon small" title="Previous match (Shift+Enter)" aria-label="Previous match">↑</button>
+          <button id="findNext" class="btn icon small" title="Next match (Enter)" aria-label="Next match">↓</button>
+          <button id="findClose" class="btn icon small" title="Close (Esc)" aria-label="Close search">✕</button>
+        </div>
+        <div id="viewer" class="viewer" tabindex="-1">
+          <div id="pages" class="pages"></div>
+        </div>
       </div>
       <div id="divider" class="divider" title="Drag to resize"></div>
       <aside id="sidebar" class="sidebar">
@@ -113,7 +143,10 @@
         <div class="tab-panel" data-panel="page">
           <div class="panel-head">
             <h3>Page <span id="sbPageNum">1</span></h3>
-            <span class="muted small">Select text in the PDF to attach a note</span>
+            <div class="flags">
+              <button id="flagExam" class="flag" data-flag="exam" aria-pressed="false" title="Mark as exam-relevant (E)">⭐ Exam</button>
+              <button id="flagAsk" class="flag" data-flag="ask" aria-pressed="false" title="Mark: I have a question about this (Q)">❓ Ask</button>
+            </div>
           </div>
           <label class="field-label" for="pageNote">Notes for this page</label>
           <textarea id="pageNote" class="note-area" placeholder="Type what the lecturer says about this slide…"></textarea>
@@ -126,6 +159,11 @@
 
         <div class="tab-panel" data-panel="all" hidden>
           <input id="searchInput" class="search" type="search" placeholder="Search notes & highlights…">
+          <div class="chips" role="group" aria-label="Filter">
+            <button class="chip active" data-filter="all">All</button>
+            <button class="chip" data-filter="exam">⭐ Exam</button>
+            <button class="chip" data-filter="ask">❓ Questions</button>
+          </div>
           <div id="allList" class="all-list"></div>
         </div>
 
@@ -162,6 +200,10 @@
         <tr><td><kbd>N</kbd></td><td>Highlight the selection and write a note</td></tr>
         <tr><td><kbd>A</kbd> or <kbd>Alt</kbd> + drag</td><td>Area note: box a diagram, formula or image</td></tr>
         <tr><td><kbd>P</kbd></td><td>Write notes for the current page</td></tr>
+        <tr><td><kbd>E</kbd> / <kbd>Q</kbd></td><td>Mark the page ⭐ exam-relevant / ❓ question to ask</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>F</kbd></td><td>Search in the slides (<kbd>Enter</kbd> next match)</td></tr>
+        <tr><td><kbd>T</kbd></td><td>Page thumbnails and outline</td></tr>
+        <tr><td><kbd>S</kbd></td><td>Study your notes as flashcards</td></tr>
         <tr><td><kbd>\</kbd></td><td>Hide / show the notes panel</td></tr>
         <tr><td><kbd>L</kbd> / <kbd>O</kbd></td><td>Library / open a PDF</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Leave a text box, close menus</td></tr>
@@ -175,6 +217,49 @@
       </ul>
       <div class="dialog-actions"><button class="btn primary" value="close">Got it</button></div>
     </form>
+  </dialog>
+
+  <dialog id="studyDialog" class="study-dialog" aria-labelledby="studyTitle">
+    <div class="study-head">
+      <h2 id="studyTitle">🎓 Study</h2>
+      <span id="studyProgress" class="muted small"></span>
+      <button id="studyClose" class="btn icon small" aria-label="Close">✕</button>
+    </div>
+    <div id="studySetup" class="study-body">
+      <p id="studySummary"></p>
+      <div id="studyOptions">
+        <label class="opt"><span>Cards</span>
+          <select id="studyScope">
+            <option value="due">Due for review</option>
+            <option value="all">All cards</option>
+            <option value="exam">Only ⭐ exam pages</option>
+          </select>
+        </label>
+        <label class="opt"><span>Show first</span>
+          <select id="studyDir">
+            <option value="hl">The highlight, then recall your note</option>
+            <option value="note">Your note, then recall the slide</option>
+          </select>
+        </label>
+        <div class="dialog-actions"><button id="studyStart" class="btn primary">Start</button></div>
+      </div>
+      <p class="muted small">Every highlight or area with a note is a card. Tip: write notes as answers, e.g. highlight “PCB” and note “stores process state, saved on context switch”.</p>
+    </div>
+    <div id="studyCard" class="study-body" hidden>
+      <div class="card-meta muted small"><span id="cardWhere"></span> · <button id="cardOpen" class="linklike">show in PDF</button></div>
+      <div id="cardFront" class="card-face"></div>
+      <div id="cardBack" class="card-face back" hidden></div>
+      <div id="cardReveal" class="dialog-actions"><button id="btnReveal" class="btn primary">Show answer <kbd>Space</kbd></button></div>
+      <div id="cardGrade" class="grade" hidden>
+        <button class="btn" data-grade="again">Again <kbd>1</kbd></button>
+        <button class="btn" data-grade="good">Good <kbd>2</kbd></button>
+        <button class="btn" data-grade="easy">Easy <kbd>3</kbd></button>
+      </div>
+    </div>
+    <div id="studyDone" class="study-body" hidden>
+      <p id="studyDoneText"></p>
+      <div class="dialog-actions"><button id="studyAgain" class="btn">Study more</button><button id="studyFinish" class="btn primary">Done</button></div>
+    </div>
   </dialog>
 
   <script src="vendor/pdf.min.js"></script>

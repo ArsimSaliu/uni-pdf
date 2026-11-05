@@ -1,6 +1,6 @@
 {
   "name": "uni-pdf",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "A private, offline PDF reader for lectures: highlight slides, attach notes, export a PDF with your notes next to every slide.",
   "homepage": "https://arsimsaliu.github.io/uni-pdf/",

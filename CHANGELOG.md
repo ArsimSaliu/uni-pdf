@@ -2,6 +2,23 @@
 
 All notable changes to uni-pdf. Versions follow [semantic versioning](https://semver.org).
 
+## [1.1.0] - 2026-11-05
+
+The study release: features for revising, not just reading.
+
+### Added
+- **Study mode (flashcards):** every highlight or area with a note becomes a card. Reveal the answer, grade it (Again / Good / Easy), and spaced repetition schedules the next review. Diagram cards show the boxed part of the slide. Open it with **🎓 Study** or `S`.
+- **Flashcards for Anki:** *Export → Flashcards for Anki* saves a file that Anki imports directly, tagged by lecture and page.
+- **Search in the slides** (`Ctrl+F`): finds text on every page, including ones that aren't rendered yet, highlights all matches, and steps through them with `Enter` / `Shift+Enter`.
+- **Page thumbnails and outline** (`T`): a sidebar with all pages, showing which ones have notes or flags, plus the PDF's table of contents when it has one.
+- **Page flags:** mark slides ⭐ *exam-relevant* (`E`) or ❓ *question to ask* (`Q`). Filter by them in *All notes*. They appear in the Markdown and PDF exports and in the library.
+- **Library search:** search the notes of all your lectures at once and jump straight to the right page.
+- **Full backup:** back up every PDF and note in one file, and restore it on another computer or after clearing the browser.
+
+### Changed
+- The toolbar adapts better to tablet and small laptop widths.
+- The library shows exam and question counts and how many cards are due for review.
+
 ## [1.0.0] - 2026-11-05
 
 The first public release.

@@ -9,4 +9,4 @@
 - Your data is deleted when you remove a PDF from the library or clear this site's data in your browser settings. Export a backup first if you want to keep it.
 - Exports (PDF, Markdown, JSON) are generated on your device and saved wherever you choose.
 
-Questions? [Open an issue](https://github.com/ArsimSaliu/uni-pdf/issues).
+Questions? [Open an issue](https://github.com/ArsimSaliu/uni-pdf/issues). Responsible for this project: Arsim Saliu, Austria (see the [Impressum](https://arsimsaliu.github.io/uni-pdf/impressum.html)).

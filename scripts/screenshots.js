@@ -84,6 +84,8 @@ async function annotate(page, { slow = 0 } = {}) {
   await page.mouse.move(box.x + box.width * 0.975, box.y + box.height * 0.86, { steps: slow ? 25 : 4 });
   await page.mouse.up();
   await typeSlow(page, '.annot.active .annot-note', 'Memorise all 5 states + the 6 arrows. Waiting → Ready, never straight to Running.', slow ? 30 : 0);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('e'); // ⭐ exam-relevant
   await pause(900);
 
   await gotoPage(page, 5);
@@ -92,6 +94,26 @@ async function annotate(page, { slow = 0 } = {}) {
   await typeSlow(page, '.annot.active .annot-note', 'Only optimal if burst times are known in advance (they usually aren\'t).', slow ? 30 : 0);
   await selectText(page, 5, 'fixed time quantum');
   await page.click('#selToolbar .swatch[data-color="green"]');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('q'); // ❓ question for the tutorial
+  // circle the second time slice (P2) in the Gantt chart with the red pen
+  await page.keyboard.press('d');
+  await page.click('.dtool[data-tool="pen"]');
+  await page.click('.dcolor[data-color="red"]');
+  await page.click('.dsize[data-size="1"]');
+  {
+    const g = await page.locator('.page[data-page="5"]').boundingBox();
+    const cx = 0.385, cy = 0.705, rx = 0.06, ry = 0.095;
+    await page.mouse.move(g.x + g.width * (cx + rx), g.y + g.height * cy);
+    await page.mouse.down();
+    for (let i = 1; i <= 36; i++) {
+      const t = (i / 36) * Math.PI * 2.1;
+      await page.mouse.move(g.x + g.width * (cx + rx * Math.cos(t)), g.y + g.height * (cy + ry * Math.sin(t)));
+      if (slow) await page.waitForTimeout(12);
+    }
+    await page.mouse.up();
+  }
+  await page.keyboard.press('Escape');
   await page.locator('.tab[data-tab="doc"]').click();
   await page.locator('#docNote').fill('Summary\n- Process = program + state (PCB)\n- 5 states, know the transitions\n- FCFS / SJF / RR: practise waiting-time calculations\n\nQuestions for the tutorial\n- What happens to the PCB when a process terminates?');
   await page.locator('.tab[data-tab="page"]').click();
@@ -135,6 +157,34 @@ async function annotate(page, { slow = 0 } = {}) {
     await page.screenshot({ path: path.join(OUT, 'search.png') });
     await page.fill('#searchInput', '');
     await page.locator('.tab[data-tab="page"]').click();
+
+    // Search in the slides + thumbnails
+    await page.click('#btnThumbs');
+    await gotoPage(page, 1);
+    await page.keyboard.press('Control+f');
+    await page.keyboard.type('waiting');
+    await page.waitForTimeout(1200);
+    await hideToast(page);
+    await page.screenshot({ path: path.join(OUT, 'find.png') });
+    await page.keyboard.press('Escape');
+    await page.click('#btnThumbs');
+
+    // Study mode
+    await page.mouse.click(5, 300);
+    await page.keyboard.press('s');
+    await page.selectOption('#studyScope', 'all');
+    await page.click('#studyStart');
+    for (let i = 0; i < 4; i++) {
+      if (await page.locator('#cardFront img').count()) break;
+      await page.keyboard.press(' ');
+      await page.keyboard.press('2');
+    }
+    await page.waitForTimeout(500);
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(400);
+    await hideToast(page);
+    await page.screenshot({ path: path.join(OUT, 'study.png') });
+    await page.keyboard.press('Escape');
 
     await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
     await gotoPage(page, 5);

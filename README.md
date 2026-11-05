@@ -34,8 +34,13 @@ In a lecture you have the slides in one window and your notes in another, and af
 
 - **Notes anchored to text.** Select a sentence, press <kbd>N</kbd>, and type. Hover the highlight later to read the note.
 - **Area notes** for diagrams, formulas and images (<kbd>A</kbd>, or <kbd>Alt</kbd> + drag).
+- **Draw on slides** with a pen or highlighter (<kbd>D</kbd>), using a mouse, a touchscreen or a stylus.
 - **A notes field for each slide**, plus general notes for the whole lecture.
-- **Search** every note and highlight in a lecture at once.
+- **Search the slides** (`Ctrl+F`) and **search every note**, in one lecture or across your whole library.
+- **Study mode:** your highlights and notes become flashcards with spaced repetition, and you can export them to **Anki**.
+- **Flag slides** as ⭐ exam-relevant or ❓ question to ask, and filter by them.
+- **Page thumbnails and outline** for jumping around long decks.
+- **Command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>) for every action and lecture, and a library of lecture cards you can group by **course**.
 - **Export** a PDF with numbered highlights and a notes column, an *editable* PDF that you can reopen here, Markdown, or a JSON backup.
 - **Private.** No server, account, analytics or uploads. Everything stays in your browser.
 - **Works offline**, can be installed as an app (PWA), has dark mode, and works on phones and tablets.
@@ -44,6 +49,8 @@ In a lecture you have the slides in one window and your notes in another, and af
 |---|---|
 | ![Reader](site/assets/reader.png) | ![Exported PDF](site/assets/export-page.png) |
 | Slide with highlights and the notes panel | The exported PDF, with notes next to the slide |
+| ![Study mode](site/assets/study.png) | ![Search and thumbnails](site/assets/find.png) |
+| Study mode: your notes as flashcards | Search in the slides, with page thumbnails |
 
 ## Get started
 
@@ -61,13 +68,22 @@ In a lecture you have the slides in one window and your notes in another, and af
 | Note on a word/sentence | Select the text → **✎ Note** (or press <kbd>N</kbd>) |
 | Highlight only | Select the text → click a colour (or press <kbd>H</kbd>) |
 | Note on a diagram/image | **▭ Area** (or <kbd>A</kbd>, or hold <kbd>Alt</kbd> while dragging) and drag a box |
+| Draw on the slide | **✏ Draw** or <kbd>D</kbd>: pen, highlighter, eraser, 5 colours, 3 sizes. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Esc</kbd> done. Click a drawing afterwards to add a note |
 | Note for the whole page/slide | Press <kbd>P</kbd> or type in *Notes for this page* |
 | General notes for the lecture | **Lecture notes** tab |
 | See/search everything | **All notes** tab |
 | Jump to a highlight | Click it in the sidebar. Clicking a highlight in the PDF opens its note |
 | Undo a delete | Click **Undo** in the message that appears |
+| Find any action or lecture | <kbd>Ctrl</kbd>+<kbd>K</kbd> |
+| Group lectures by course | Hover a lecture card in the library → folder icon |
+| Search the slides | <kbd>Ctrl</kbd>+<kbd>F</kbd>, then <kbd>Enter</kbd> / <kbd>Shift</kbd>+<kbd>Enter</kbd> for next / previous |
+| Mark a slide | <kbd>E</kbd> ⭐ exam-relevant · <kbd>Q</kbd> ❓ question to ask (or the buttons in the notes panel) |
+| Study with flashcards | **🎓 Study** or <kbd>S</kbd>. Every highlight with a note is a card. *Export → Flashcards for Anki* for Anki |
+| Page thumbnails / outline | Toolbar button or <kbd>T</kbd> |
+| Search all lectures | Search box in the library |
+| Back up everything | Library → *Back up everything* (all PDFs and notes in one file) |
 
-**Keys:** <kbd>←</kbd>/<kbd>→</kbd> previous/next page · <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd> zoom/fit · <kbd>Ctrl</kbd>+scroll zoom · <kbd>\\</kbd> hide/show the notes panel · <kbd>L</kbd> library · <kbd>?</kbd> all shortcuts · <kbd>Esc</kbd> leave a text box
+**Keys:** <kbd>←</kbd>/<kbd>→</kbd> previous/next page · <kbd>T</kbd> thumbnails · <kbd>S</kbd> study · <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd> zoom/fit · <kbd>Ctrl</kbd>+scroll zoom · <kbd>\\</kbd> hide/show the notes panel · <kbd>L</kbd> library · <kbd>?</kbd> all shortcuts · <kbd>Esc</kbd> leave a text box
 
 ## Your data
 
@@ -93,8 +109,8 @@ npm run lint
 | `app/` | The app: `index.html`, `styles.css`, `app.js`, `export-pdf.js` (builds the annotated PDF), `sw.js` (offline cache), `manifest.webmanifest` |
 | `app/vendor/` | Bundled so everything works offline: [pdf.js](https://github.com/mozilla/pdf.js) 3.11.174 (Apache-2.0), [pdf-lib](https://pdf-lib.js.org) 1.17.1 + fontkit (MIT), DejaVu Sans (free licence, covers Greek and maths symbols) |
 | `site/` | The homepage, deployed to GitHub Pages together with the app |
-| `scripts/` | `serve.js`, `build-site.js` (→ `_site/` and `dist/uni-pdf.zip`), `make-sample.js` (demo lecture), `screenshots.js` (homepage images and demo video), `make-icons.js`, `bump-version.js` |
-| `tests/` | Playwright tests: highlighting, notes, persistence, every export, editable-PDF round trip, offline mode, `file://` mode |
+| `scripts/` | `vendor-assets.js` (copies the Inter font and builds the Lucide icon sprite into `app/index.html`), `serve.js`, `build-site.js` (→ `_site/` and `dist/uni-pdf.zip`), `make-sample.js` (demo lecture), `screenshots.js` (homepage images and demo video), `make-icons.js`, `bump-version.js` |
+| `tests/` | Playwright tests: highlighting, notes, persistence, every export, editable-PDF round trip, offline mode, `file://` mode, search, thumbnails, flags, study mode, Anki export, library search and full backup |
 | `marketing/` | Launch kit: copy for Product Hunt, Hacker News, Reddit, social media and more |
 
 ### Releasing
@@ -111,4 +127,6 @@ Bug reports and ideas from students are very welcome. See [CONTRIBUTING.md](CONT
 
 ## License
 
-Public domain ([Unlicense](LICENSE)). The bundled libraries keep their own licences (see `app/vendor/`).
+uni-pdf's own code is public domain ([Unlicense](LICENSE)). The bundled libraries and fonts keep their own licences: see [app/vendor/THIRD-PARTY-NOTICES.md](app/vendor/THIRD-PARTY-NOTICES.md).
+
+uni-pdf is an independent project. It isn't affiliated with Adobe, Anki or any other product mentioned in this repository, and their names are used only to describe compatibility.

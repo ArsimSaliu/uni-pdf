@@ -1,7 +1,7 @@
 /* uni-pdf service worker: caches the app so it works offline once installed.
  * CACHE must change on every release (scripts/bump-version.js does this). */
 'use strict';
-const CACHE = 'uni-pdf-1.0.0';
+const CACHE = 'uni-pdf-1.1.0';
 const CORE = [
   './',
   'index.html',
@@ -12,6 +12,9 @@ const CORE = [
   'icons/icon-192.png',
   'vendor/pdf.min.js',
   'vendor/pdf.worker.min.js',
+  'vendor/fonts/inter-latin.woff2',
+  'vendor/fonts/inter-latin-ext.woff2',
+  'vendor/fonts/inter-greek.woff2',
 ];
 // Only needed for exporting or the demo; cached in the background.
 const LAZY = [

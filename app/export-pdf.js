@@ -66,7 +66,8 @@
     const font = await out.embedFont(b64ToBytes(window.PDFNOTES_FONTS.regular), { subset: true });
     const bold = await out.embedFont(b64ToBytes(window.PDFNOTES_FONTS.bold), { subset: true });
     out.setTitle(doc.name.replace(/\.pdf$/i, '') + ' (with notes)');
-    out.setCreator('Lecture Notes PDF');
+    out.setCreator('uni-pdf');
+    out.setProducer('uni-pdf (pdf-lib)');
 
     const srcPages = src.getPages();
     const boxes = srcPages.map((p) => {
@@ -203,11 +204,11 @@
       // Other PDF readers just show the annotated pages (and list these as attachments).
       await out.attach(bytes, EMBED_PDF, {
         mimeType: 'application/pdf',
-        description: 'Original slides, used by Lecture Notes PDF to re-open your notes for editing',
+        description: 'Original slides, used by uni-pdf to re-open your notes for editing',
       });
       await out.attach(new TextEncoder().encode(JSON.stringify(opts.notes)), EMBED_JSON, {
         mimeType: 'application/json',
-        description: 'Editable notes for Lecture Notes PDF',
+        description: 'Editable notes for uni-pdf',
       });
     }
 

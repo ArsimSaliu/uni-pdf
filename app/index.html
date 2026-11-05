@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>uni-pdf: lecture slides and your notes, side by side</title>
+  <meta name="description" content="A free, private PDF reader for lectures. Highlight slides, attach notes to any sentence or diagram, and export a PDF with your notes next to every slide. Works offline, nothing is uploaded.">
+  <meta name="theme-color" content="#2f6fde">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="tb-group">
+      <button id="btnLibrary" class="btn" title="Library (L)"><span class="brand-dot" aria-hidden="true"></span>Library</button>
+      <label class="btn primary" title="Open a PDF (O)">
+        Open PDF
+        <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+      </label>
+    </div>
+    <span id="docTitle" class="doc-title"></span>
+
+    <div class="tb-group doc-only">
+      <button id="btnPrev" class="btn icon" title="Previous page (←)" aria-label="Previous page">‹</button>
+      <input id="pageInput" class="page-input" type="text" inputmode="numeric" value="1" aria-label="Page number">
+      <span class="muted">/ <span id="pageCount">0</span></span>
+      <button id="btnNext" class="btn icon" title="Next page (→)" aria-label="Next page">›</button>
+    </div>
+
+    <div class="tb-group doc-only">
+      <button id="btnZoomOut" class="btn icon" title="Zoom out (-)" aria-label="Zoom out">−</button>
+      <button id="btnZoomLabel" class="btn zoom-label" title="Fit to width (0)">100%</button>
+      <button id="btnZoomIn" class="btn icon" title="Zoom in (+)" aria-label="Zoom in">+</button>
+      <button id="btnArea" class="btn" title="Area note: drag a box over a diagram or image (A). Alt+drag also works.">▭ Area</button>
+    </div>
+
+    <div class="tb-group">
+      <span id="saveState" class="save-state muted"></span>
+      <div class="menu-wrap doc-only">
+        <button id="btnExport" class="btn" aria-haspopup="menu" aria-expanded="false">Export ▾</button>
+        <div id="exportMenu" class="menu" role="menu" hidden>
+          <button role="menuitem" data-export="pdf">PDF with highlights &amp; notes (.pdf)</button>
+          <button role="menuitem" data-export="pdf-edit">Editable PDF (open it here again to keep editing)</button>
+          <button role="menuitem" data-export="md">Notes as Markdown (.md)</button>
+          <button role="menuitem" data-export="json">Backup this PDF's notes (.json)</button>
+          <button role="menuitem" data-export="import">Restore notes from backup…</button>
+        </div>
+      </div>
+      <input id="importInput" type="file" accept=".json,application/json" hidden>
+      <button id="btnTheme" class="btn icon" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+      <button id="btnHelp" class="btn icon" title="Help and keyboard shortcuts (?)" aria-label="Help and keyboard shortcuts">?</button>
+      <button id="btnSidebar" class="btn doc-only" title="Toggle notes panel (\)">Notes ⇥</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Library / home -->
+    <section id="library" class="library">
+      <div class="lib-hero">
+        <img src="icons/icon.svg" alt="" width="56" height="56">
+        <div>
+          <h1>uni-pdf</h1>
+          <p class="muted">Lecture slides and your notes, side by side. Private, offline, free.</p>
+        </div>
+      </div>
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-icon" aria-hidden="true">📄</div>
+        <p><strong>Drop a lecture PDF here</strong> or use <em>Open PDF</em>.</p>
+        <p class="muted small">Everything stays on this device. PDFs and notes are saved in your browser, never uploaded.</p>
+        <div class="drop-actions">
+          <label class="btn primary">
+            Open PDF
+            <input id="fileInput2" type="file" accept="application/pdf,.pdf" hidden>
+          </label>
+          <button id="btnSample" class="btn">Try the demo lecture</button>
+        </div>
+      </div>
+      <h2 class="lib-heading">Recent PDFs</h2>
+      <ul id="libList" class="lib-list"></ul>
+      <div id="libEmpty" class="lib-empty">
+        <p class="muted">No PDFs yet. Here's how it works:</p>
+        <ol class="howto">
+          <li><strong>Open</strong> your lecture slides.</li>
+          <li><strong>Select text</strong> and pick a colour to highlight, or press <kbd>N</kbd> to attach a note.</li>
+          <li><strong>Drag a box</strong> with <kbd>A</kbd> to note a diagram or formula.</li>
+          <li><strong>Export</strong> a PDF with your notes printed next to every slide.</li>
+        </ol>
+      </div>
+      <footer class="lib-foot muted small">
+        <span id="appVersion"></span>
+        · <a href="https://github.com/ArsimSaliu/uni-pdf" target="_blank" rel="noopener">Source on GitHub</a>
+        · <a href="https://github.com/ArsimSaliu/uni-pdf/issues/new/choose" target="_blank" rel="noopener">Report a problem</a>
+        · <button id="btnHelp2" class="linklike">Keyboard shortcuts</button>
+      </footer>
+    </section>
+
+    <!-- Reader -->
+    <section id="reader" class="reader" hidden>
+      <div id="viewer" class="viewer" tabindex="-1">
+        <div id="pages" class="pages"></div>
+      </div>
+      <div id="divider" class="divider" title="Drag to resize"></div>
+      <aside id="sidebar" class="sidebar">
+        <nav class="tabs">
+          <button class="tab active" data-tab="page">This page</button>
+          <button class="tab" data-tab="all">All notes</button>
+          <button class="tab" data-tab="doc">Lecture notes</button>
+        </nav>
+
+        <div class="tab-panel" data-panel="page">
+          <div class="panel-head">
+            <h3>Page <span id="sbPageNum">1</span></h3>
+            <span class="muted small">Select text in the PDF to attach a note</span>
+          </div>
+          <label class="field-label" for="pageNote">Notes for this page</label>
+          <textarea id="pageNote" class="note-area" placeholder="Type what the lecturer says about this slide…"></textarea>
+          <div id="pageAnnots" class="annot-list"></div>
+          <p id="pageAnnotsEmpty" class="muted small empty-hint">
+            No highlights on this page yet.<br>
+            Select a word or sentence → choose a colour or <kbd>N</kbd> for a note.
+          </p>
+        </div>
+
+        <div class="tab-panel" data-panel="all" hidden>
+          <input id="searchInput" class="search" type="search" placeholder="Search notes & highlights…">
+          <div id="allList" class="all-list"></div>
+        </div>
+
+        <div class="tab-panel" data-panel="doc" hidden>
+          <div class="panel-head">
+            <h3>Lecture notes</h3>
+            <span class="muted small">General notes for this whole PDF</span>
+          </div>
+          <textarea id="docNote" class="note-area tall" placeholder="Summary, questions to ask, homework, exam hints…"></textarea>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Floating toolbar shown on text selection -->
+  <div id="selToolbar" class="sel-toolbar" hidden>
+    <button class="swatch" data-color="yellow" title="Highlight yellow (H)"></button>
+    <button class="swatch" data-color="green" title="Highlight green"></button>
+    <button class="swatch" data-color="blue" title="Highlight blue"></button>
+    <button class="swatch" data-color="pink" title="Highlight pink"></button>
+    <span class="sep"></span>
+    <button id="selNote" class="btn small primary" title="Highlight and write a note (N)">✎ Note</button>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMsg"></span><button id="toastAction" class="toast-action" hidden></button></div>
+
+  <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpTitle">
+    <form method="dialog">
+      <h2 id="helpTitle">Keyboard shortcuts</h2>
+      <table class="keys">
+        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next page</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>-</kbd> <kbd>0</kbd></td><td>Zoom in / out / fit width (or <kbd>Ctrl</kbd> + scroll)</td></tr>
+        <tr><td><kbd>H</kbd></td><td>Highlight the selected text</td></tr>
+        <tr><td><kbd>N</kbd></td><td>Highlight the selection and write a note</td></tr>
+        <tr><td><kbd>A</kbd> or <kbd>Alt</kbd> + drag</td><td>Area note: box a diagram, formula or image</td></tr>
+        <tr><td><kbd>P</kbd></td><td>Write notes for the current page</td></tr>
+        <tr><td><kbd>\</kbd></td><td>Hide / show the notes panel</td></tr>
+        <tr><td><kbd>L</kbd> / <kbd>O</kbd></td><td>Library / open a PDF</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Leave a text box, close menus</td></tr>
+        <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+      </table>
+      <h3>Good to know</h3>
+      <ul class="small">
+        <li>Notes save automatically, in this browser only. Use <em>Export → Backup</em> before clearing browser data or switching computers.</li>
+        <li><em>Export → Editable PDF</em> gives you one file that has both the slides and your notes. Open it here again, on any computer, to keep editing.</li>
+        <li>Opening the same PDF again, even from another folder, brings back its notes.</li>
+      </ul>
+      <div class="dialog-actions"><button class="btn primary" value="close">Got it</button></div>
+    </form>
+  </dialog>
+
+  <script src="vendor/pdf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

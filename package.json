@@ -1,0 +1,29 @@
+{
+  "name": "uni-pdf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A private, offline PDF reader for lectures: highlight slides, attach notes, export a PDF with your notes next to every slide.",
+  "homepage": "https://arsimsaliu.github.io/uni-pdf/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArsimSaliu/uni-pdf.git"
+  },
+  "license": "Unlicense",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "playwright test",
+    "lint": "eslint .",
+    "build": "node scripts/build-site.js",
+    "sample": "node scripts/make-sample.js",
+    "icons": "node scripts/make-icons.js",
+    "screenshots": "node scripts/screenshots.js",
+    "marketing": "node scripts/make-marketing.js",
+    "version": "node scripts/bump-version.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.63.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0"
+  }
+}

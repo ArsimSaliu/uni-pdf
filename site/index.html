@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>uni-pdf: take lecture notes right on your slides (free, private, offline)</title>
+  <meta name="description" content="uni-pdf is a free PDF reader for lectures. Highlight slides, attach notes to any sentence or diagram, and export one PDF with your notes printed next to every slide. Runs in your browser, works offline, nothing is uploaded.">
+  <meta name="theme-color" content="#2f6fde">
+  <link rel="canonical" href="https://arsimsaliu.github.io/uni-pdf/">
+  <link rel="icon" href="app/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="app/icons/icon-180.png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="uni-pdf: your lecture notes, right on the slides">
+  <meta property="og:description" content="Highlight slides, attach notes to any sentence or diagram, export a PDF with your notes next to every slide. Free, offline, nothing uploaded.">
+  <meta property="og:url" content="https://arsimsaliu.github.io/uni-pdf/">
+  <meta property="og:image" content="https://arsimsaliu.github.io/uni-pdf/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="uni-pdf: your lecture notes, right on the slides">
+  <meta name="twitter:description" content="Free, private, offline PDF reader built for lectures.">
+  <meta name="twitter:image" content="https://arsimsaliu.github.io/uni-pdf/assets/og-image.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "uni-pdf",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web browser (Windows, macOS, Linux, ChromeOS, Android, iOS)",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "A free, private PDF reader for lectures with highlights, text-anchored notes and annotated PDF export.",
+    "url": "https://arsimsaliu.github.io/uni-pdf/"
+  }
+  </script>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-in">
+      <a class="logo" href="./"><img src="app/icons/icon.svg" alt="" width="30" height="30"> uni-pdf</a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#export">Export</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/ArsimSaliu/uni-pdf" class="gh">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="app/">Open the app</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-in">
+        <p class="eyebrow">Free · Open source · No account</p>
+        <h1>Your lecture notes, <span class="mark">right on the slides.</span></h1>
+        <p class="lead">uni-pdf is a PDF reader built for lectures. Highlight what matters, attach a note to any sentence or diagram, and walk out with one PDF that has your notes printed next to every slide.</p>
+        <div class="cta">
+          <a class="btn btn-primary btn-lg" href="app/">Start taking notes, it's free</a>
+          <a class="btn btn-ghost btn-lg" href="app/#demo">Try the demo lecture</a>
+        </div>
+        <p class="fine">Runs in your browser. Works offline. Your files never leave your device.</p>
+        <div class="hero-media">
+          <video src="assets/demo.mp4" poster="assets/demo-poster.jpg" autoplay muted loop playsinline aria-label="Demo: highlighting slides and writing notes in uni-pdf"></video>
+        </div>
+      </div>
+    </section>
+
+    <section class="strip">
+      <div class="wrap strip-in">
+        <div><strong>0</strong><span>uploads, accounts or trackers</span></div>
+        <div><strong>4</strong><span>ways to export your notes</span></div>
+        <div><strong>100%</strong><span>works offline</span></div>
+        <div><strong>Free</strong><span>forever, open source</span></div>
+      </div>
+    </section>
+
+    <section class="how wrap">
+      <h2>From slides to study notes in three steps</h2>
+      <ol class="steps">
+        <li>
+          <span class="num">1</span>
+          <h3>Open your slides</h3>
+          <p>Drag the lecture PDF into the window. Your library remembers every deck and where you stopped.</p>
+        </li>
+        <li>
+          <span class="num">2</span>
+          <h3>Highlight and annotate</h3>
+          <p>Select text and pick a colour, or press <kbd>N</kbd> to attach a note. Box a diagram or formula with <kbd>A</kbd>. Each slide also has its own notes field.</p>
+        </li>
+        <li>
+          <span class="num">3</span>
+          <h3>Export and study</h3>
+          <p>Get a PDF with numbered highlights and your notes in a column beside each slide. You can also export Markdown for your notes app.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section id="features" class="features wrap">
+      <h2>Built for how lectures actually work</h2>
+      <p class="sub">Notebook apps make you copy slides around. A plain PDF viewer gives you nowhere to write. uni-pdf puts the notes panel next to the slide you're on.</p>
+
+      <div class="feature">
+        <div class="f-text">
+          <h3>Notes that stick to the exact sentence</h3>
+          <p>Notes are anchored to the text you selected. Hover a highlight to read its note, or click it to edit. The panel always shows the notes for the slide you're looking at, so you're never hunting through a separate document.</p>
+          <ul class="ticks">
+            <li>Four highlight colours</li>
+            <li>A notes field for each slide, plus general lecture notes</li>
+            <li>Undo if you delete something by accident</li>
+          </ul>
+        </div>
+        <img class="shot" src="assets/reader.png" alt="uni-pdf showing a lecture slide with highlights and a notes panel" loading="lazy" width="1200" height="750">
+      </div>
+
+      <div class="feature rev">
+        <div class="f-text">
+          <h3>Diagrams, formulas and images too</h3>
+          <p>Not everything on a slide is selectable text. Press <kbd>A</kbd> and drag a box around a chart, an equation or a screenshot to pin a note to it. Any words inside the box are saved with it, so they're searchable later.</p>
+        </div>
+        <img class="shot" src="assets/area-note.png" alt="An area note drawn around a process state diagram" loading="lazy" width="1200" height="750">
+      </div>
+
+      <div class="feature">
+        <div class="f-text">
+          <h3>Find anything before the exam</h3>
+          <p>The <em>All notes</em> tab lists every highlight and note in the lecture, grouped by slide. Search them all at once and click a result to jump straight to that spot.</p>
+        </div>
+        <img class="shot" src="assets/search.png" alt="Searching all notes for the word exam" loading="lazy" width="1200" height="750">
+      </div>
+
+      <div class="grid">
+        <div class="card"><h4>⌨️ Keyboard-first</h4><p>Arrows to turn pages, <kbd>H</kbd> to highlight, <kbd>N</kbd> for a note, <kbd>?</kbd> for every shortcut. You can keep up with a fast lecturer without reaching for the mouse.</p></div>
+        <div class="card"><h4>🌙 Dark mode</h4><p>Easier on the eyes in a dark lecture hall or at 2 am before a deadline.</p></div>
+        <div class="card"><h4>📲 Install it like an app</h4><p>Install it from Chrome or Edge to get its own window, have it work offline, and open PDFs straight from your file manager.</p></div>
+        <div class="card"><h4>🔁 Notes follow the file</h4><p>Your notes are tied to the file's contents, not its name. Download the slides again or move them, and your notes are still there.</p></div>
+        <div class="card"><h4>🧮 Maths-friendly export</h4><p>The exported PDF uses a font that covers Greek letters and maths symbols, so λ, ∑ and ≤ come out right.</p></div>
+        <div class="card"><h4>📱 Phone and tablet</h4><p>On small screens the notes panel moves under the slides. Long-press text to highlight it.</p></div>
+      </div>
+    </section>
+
+    <section id="export" class="export">
+      <div class="wrap">
+        <h2>Walk out of the lecture with one tidy PDF</h2>
+        <p class="sub">Export puts every slide next to a notes column. Highlights are numbered and matched to your notes. The slide text stays sharp, selectable and searchable.</p>
+        <img class="shot wide" src="assets/export-page.png" alt="An exported page: the slide with numbered highlights on the left, notes column on the right" loading="lazy">
+        <div class="exports">
+          <div><h4>PDF with notes</h4><p>For printing, revising, or sending to a friend who missed the lecture.</p></div>
+          <div><h4>Editable PDF</h4><p>Looks the same in any reader, but has your notes inside it. Open it in uni-pdf on any computer and keep editing.</p></div>
+          <div><h4>Markdown</h4><p>Paste your notes into Obsidian, Notion, or any notes app.</p></div>
+          <div><h4>Backup (.json)</h4><p>Save a copy of your notes before you clear your browser data.</p></div>
+        </div>
+        <p class="center"><a href="assets/example-export.pdf">Download an example export (PDF)</a></p>
+      </div>
+    </section>
+
+    <section id="privacy" class="privacy wrap">
+      <div class="privacy-in">
+        <div>
+          <h2>Private by design. Not by promise.</h2>
+          <p>uni-pdf has no server, so there's nowhere to send your files. The app is a set of static files that runs entirely in your browser. Your PDFs and notes are stored on your own device (in IndexedDB) and are never uploaded.</p>
+          <ul class="ticks">
+            <li>No account, no sign-up, no email</li>
+            <li>No analytics, no cookies, no ads</li>
+            <li>Works with the Wi-Fi off, so it's fine for exams and flights</li>
+            <li>Open source. Read the code or host it yourself.</li>
+          </ul>
+        </div>
+        <img class="shot" src="assets/dark.png" alt="uni-pdf in dark mode" loading="lazy" width="1200" height="750">
+      </div>
+    </section>
+
+    <section id="faq" class="faq wrap">
+      <h2>Questions</h2>
+      <details><summary>Is it really free?</summary><p>Yes. uni-pdf is open source and released into the public domain. There's no paid tier and nothing is locked.</p></details>
+      <details><summary>Do I need to install anything?</summary><p>No. Click <a href="app/">Open the app</a> and it runs in your browser. If you want, you can install it from Chrome or Edge (the install icon in the address bar) to get its own window. You can also <a href="https://github.com/ArsimSaliu/uni-pdf/releases/latest">download the offline version</a> and open <code>index.html</code> straight from a USB stick.</p></details>
+      <details><summary>Where are my notes stored? Can I lose them?</summary><p>They're stored in your browser's storage on this device. They stay there until you clear your browser's site data or delete the PDF from the library. To be safe, use <em>Export → Backup</em> now and then, or <em>Export → Editable PDF</em>, which keeps your notes inside the file.</p></details>
+      <details><summary>Can I use it on two computers?</summary><p>There's no cloud sync, because nothing leaves your device. To move a lecture, export it as an <em>Editable PDF</em> and open that file in uni-pdf on the other computer. All your notes come back editable. Putting the file in a synced folder such as OneDrive or Dropbox makes this easy.</p></details>
+      <details><summary>Which browsers work?</summary><p>Current Chrome, Edge, Firefox and Safari, on Windows, macOS, Linux, ChromeOS, Android and iPad. Chrome and Edge give the best experience, including installing it as an app.</p></details>
+      <details><summary>Does it work with scanned slides?</summary><p>You can open them and use area notes and slide notes. To highlight text, the PDF needs real text in it, which most lecture slides exported from PowerPoint, Keynote, Google Slides or LaTeX have.</p></details>
+      <details><summary>Does it change my original PDF?</summary><p>No. The original stays untouched. Exports are always new files.</p></details>
+      <details><summary>I found a bug / I have an idea.</summary><p>Please <a href="https://github.com/ArsimSaliu/uni-pdf/issues/new/choose">open an issue on GitHub</a>. Feature ideas from students are very welcome.</p></details>
+    </section>
+
+    <section class="final">
+      <div class="wrap">
+        <h2>Your next lecture is the perfect time to try it.</h2>
+        <a class="btn btn-primary btn-lg" href="app/">Open uni-pdf</a>
+        <p class="fine">No sign-up. Opens in a second.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <span><img src="app/icons/icon.svg" alt="" width="18" height="18"> uni-pdf, made for students.</span>
+      <span>
+        <a href="https://github.com/ArsimSaliu/uni-pdf">Source</a> ·
+        <a href="https://github.com/ArsimSaliu/uni-pdf/releases">Releases</a> ·
+        <a href="https://github.com/ArsimSaliu/uni-pdf/blob/main/PRIVACY.md">Privacy</a> ·
+        <a href="https://github.com/ArsimSaliu/uni-pdf/issues">Feedback</a>
+      </span>
+    </div>
+  </footer>
+</body>
+</html>

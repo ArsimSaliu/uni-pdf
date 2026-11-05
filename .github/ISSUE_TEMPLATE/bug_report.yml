@@ -1,0 +1,31 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: e.g. Chrome 131 on Windows 11, Safari on iPad
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you open uni-pdf?
+      options:
+        - Online (github.io)
+        - Installed app
+        - Offline download (index.html from a folder)
+  - type: textarea
+    id: pdf
+    attributes:
+      label: Does it happen with one specific PDF?
+      description: If you can share the PDF (or a similar one), please attach it. Don't attach anything private.

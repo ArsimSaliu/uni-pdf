@@ -869,14 +869,46 @@
       card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       if (focusNote) {
         const ta = $('.annot-note', card);
-        ta.focus({ preventScroll: true });
-        ta.setSelectionRange(ta.value.length, ta.value.length);
+        const focusTa = () => {
+          if (!ta.isConnected || document.activeElement === ta) return;
+          ta.focus({ preventScroll: true });
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        };
+        // Focus right away (phones only open the keyboard inside the tap), and again
+        // after the next frame in case the click that created the note moved focus.
+        focusTa();
+        requestAnimationFrame(focusTa);
       }
     }
   }
 
   // ------------------------------------------------------------------ text selection → annotation
   const selToolbar = $('#selToolbar');
+
+  // Default color for new highlights and notes (Note button, H and N). Saved on this device.
+  let noteColor = 'yellow';
+  try { const c = localStorage.getItem('noteColor'); if (COLORS.includes(c)) noteColor = c; } catch (_) { /* ignore */ }
+  function syncNoteColor() {
+    $$('[data-note-color]').forEach((b) => {
+      const on = b.dataset.noteColor === noteColor;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    $$('.swatch', selToolbar).forEach((b) => {
+      const on = b.dataset.color === noteColor;
+      b.classList.toggle('default', on);
+      b.title = `Highlight ${b.dataset.color}` + (on ? ' (H)' : '');
+    });
+    $('#selNote').dataset.color = noteColor;
+  }
+  function setNoteColor(c) {
+    if (!COLORS.includes(c)) return;
+    noteColor = c;
+    try { localStorage.setItem('noteColor', c); } catch (_) { /* ignore */ }
+    syncNoteColor();
+  }
+  $$('[data-note-color]').forEach((b) => b.addEventListener('click', () => setNoteColor(b.dataset.noteColor)));
+  syncNoteColor();
 
   function selectionInTextLayer() {
     const sel = window.getSelection();
@@ -1001,9 +1033,11 @@
     const rects = rangeRects(range, pageDiv);
     if (!rects.length) return;
     const text = rangeRects.lastText || range.toString().replace(/\s+/g, ' ').trim();
-    addAnnotation({ page: +pageDiv.dataset.page, type: 'text', rects, text, color }, withNote);
+    // Clear the PDF selection *before* the note box gets focus: clearing it afterwards
+    // takes the caret out of the box again in some browsers (Safari, Firefox).
     window.getSelection().removeAllRanges();
     hideSelToolbar();
+    addAnnotation({ page: +pageDiv.dataset.page, type: 'text', rects, text, color }, withNote);
   }
 
   function addAnnotation(partial, withNote) {
@@ -1239,7 +1273,7 @@
   // Keep the selection alive while clicking toolbar buttons.
   selToolbar.addEventListener('mousedown', (e) => e.preventDefault());
   $$('.swatch', selToolbar).forEach((b) => b.addEventListener('click', () => createFromSelection(b.dataset.color, false)));
-  $('#selNote').addEventListener('click', () => createFromSelection(S.lastColor || 'yellow', true));
+  $('#selNote').addEventListener('click', () => createFromSelection(noteColor, true));
   const selectionText = () => (S.pendingRange ? S.pendingRange.toString() : '').replace(/\s+/g, ' ').trim();
   $('#selCopy').addEventListener('click', async () => {
     const t = selectionText();
@@ -1336,7 +1370,6 @@
       s.title = c;
       s.addEventListener('click', () => {
         a.color = c;
-        if (a.type !== 'ink') S.lastColor = c;
         palette.forEach((k) => card.classList.remove(k));
         card.classList.add(c);
         $$('.mini-swatch', foot).forEach((m) => m.classList.toggle('sel', m.dataset.color === c));
@@ -2491,6 +2524,9 @@
     for (const t of ['light', 'dark', 'system']) {
       add('Theme', t === 'light' ? 'sun' : t === 'dark' ? 'moon' : 'monitor', `Theme: ${t === 'system' ? 'same as my device' : t}`, () => $(`[data-theme-set="${t}"]`).click());
     }
+    for (const nc of COLORS) {
+      add('Note color', 'highlighter', `Default note color: ${nc}`, () => { setNoteColor(nc); toast(`New notes will be ${nc}.`); }, nc === noteColor ? '✓' : '');
+    }
     add('Help', 'keyboard', 'Keyboard shortcuts', openHelp, '?');
     for (const d of libDocs) add('Lectures', 'file-text', baseName(d.name), () => openDoc(d.id), d.course || '');
     return c;
@@ -2697,7 +2733,7 @@
   };
   $('#btnExport').addEventListener('click', (e) => { e.stopPropagation(); setMenu(exportMenu.hidden, exportMenu); });
   $('#btnMore').addEventListener('click', (e) => { e.stopPropagation(); setMenu(moreMenu.hidden, moreMenu); });
-  moreMenu.addEventListener('click', (e) => { if (e.target.closest('.theme-seg')) e.stopPropagation(); });
+  moreMenu.addEventListener('click', (e) => { if (e.target.closest('.theme-seg, .note-color-seg')) e.stopPropagation(); });
   document.addEventListener('click', () => setMenu(false));
   $$('[data-more]', moreMenu).forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.more;
@@ -2820,10 +2856,10 @@
     else if (k === '+' || k === '=') zoomBy(1.15);
     else if (k === '-') zoomBy(1 / 1.15);
     else if (k === '0') applyZoom('fit');
-    else if (k === 'h' || k === 'H') { if (selectionInTextLayer() || S.pendingRange) createFromSelection(S.lastColor || 'yellow', false); }
+    else if (k === 'h' || k === 'H') { if (selectionInTextLayer() || S.pendingRange) createFromSelection(noteColor, false); }
     else if (k === 'n' || k === 'N') {
       e.preventDefault();
-      if (selectionInTextLayer() || S.pendingRange) createFromSelection(S.lastColor || 'yellow', true);
+      if (selectionInTextLayer() || S.pendingRange) createFromSelection(noteColor, true);
       else { showSidebar(); switchTab('page'); $('#pageNote').focus(); }
     }
     else if (k === 'p' || k === 'P') { e.preventDefault(); showSidebar(); switchTab('page'); $('#pageNote').focus(); }

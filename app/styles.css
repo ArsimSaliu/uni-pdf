@@ -249,6 +249,15 @@ mark { background: rgba(255, 214, 0, .55); color: inherit; border-radius: 3px; p
 .menu-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 4px 10px 6px; }
 .theme-seg { margin: 0 10px 4px; display: flex; }
 .theme-seg .seg-btn { flex: 1; }
+.note-color-seg { margin: 0 10px 4px; display: flex; }
+.note-color-seg .seg-btn { flex: 1; }
+.note-color-seg .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 1px var(--border-strong); }
+.note-color-seg .seg-btn.active .dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text); }
+[data-note-color="yellow"] .dot, #selNote[data-color="yellow"] .note-dot { background: var(--c-yellow); }
+[data-note-color="green"] .dot, #selNote[data-color="green"] .note-dot { background: var(--c-green); }
+[data-note-color="blue"] .dot, #selNote[data-color="blue"] .note-dot { background: var(--c-blue); }
+[data-note-color="pink"] .dot, #selNote[data-color="pink"] .note-dot { background: var(--c-pink); }
+#selNote .note-dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .85); }
 @keyframes pop { from { opacity: 0; transform: scale(.97) translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* toast */
@@ -493,6 +502,7 @@ body.draw-mode .page.hl-hover { cursor: crosshair; }
 .sel-toolbar { position: fixed; z-index: 100; display: flex; align-items: center; gap: 6px; padding: 6px 7px 6px 9px; animation: pop var(--t-fast) var(--ease); }
 .swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); cursor: pointer; padding: 0; transition: transform var(--t-fast); }
 .swatch:hover { transform: scale(1.12); }
+.swatch.default { box-shadow: 0 0 0 1.5px var(--text); }
 .swatch[data-color="yellow"] { background: var(--c-yellow); }
 .swatch[data-color="green"] { background: var(--c-green); }
 .swatch[data-color="blue"] { background: var(--c-blue); }

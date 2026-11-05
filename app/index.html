@@ -74,6 +74,13 @@
             <button class="seg-btn" data-theme-set="dark" title="Dark"><svg class="ic" aria-hidden="true"><use href="#i-moon"/></svg></button>
             <button class="seg-btn" data-theme-set="system" title="Same as my device"><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg></button>
           </div>
+          <div class="menu-label">Default note color</div>
+          <div class="note-color-seg seg" role="group" aria-label="Default color for new notes and highlights">
+            <button class="seg-btn" data-note-color="yellow" title="Yellow" aria-label="Yellow"><span class="dot"></span></button>
+            <button class="seg-btn" data-note-color="green" title="Green" aria-label="Green"><span class="dot"></span></button>
+            <button class="seg-btn" data-note-color="blue" title="Blue" aria-label="Blue"><span class="dot"></span></button>
+            <button class="seg-btn" data-note-color="pink" title="Pink" aria-label="Pink"><span class="dot"></span></button>
+          </div>
           <hr>
           <a role="menuitem" href="https://github.com/ArsimSaliu/uni-pdf/issues/new/choose" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-bug"/></svg><span><b>Report a problem</b></span></a>
           <a role="menuitem" href="https://github.com/ArsimSaliu/uni-pdf/blob/main/app/vendor/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-scale"/></svg><span><b>Licences</b></span></a>
@@ -249,7 +256,7 @@
     <button class="swatch" data-color="blue" title="Highlight blue" aria-label="Highlight blue"></button>
     <button class="swatch" data-color="pink" title="Highlight pink" aria-label="Highlight pink"></button>
     <span class="sep"></span>
-    <button id="selNote" class="btn small primary" title="Highlight and write a note (N)"><svg class="ic" aria-hidden="true"><use href="#i-sticky-note"/></svg><span>Note</span></button>
+    <button id="selNote" class="btn small primary" title="Highlight and write a note (N)"><svg class="ic" aria-hidden="true"><use href="#i-sticky-note"/></svg><span>Note</span><span class="note-dot" aria-hidden="true"></span></button>
     <button id="selCopy" class="btn ghost icon small" title="Copy text" aria-label="Copy text"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg></button>
     <button id="selFind" class="btn ghost icon small" title="Find in the slides" aria-label="Find in the slides"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></button>
   </div>

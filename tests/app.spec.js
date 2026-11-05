@@ -103,6 +103,25 @@ test('highlight, note, page note and lecture note persist across reloads', async
   await expect(page.locator('#allList .all-item')).toHaveCount(1);
 });
 
+test('Note focuses the note box and uses the default note color', async ({ page }) => {
+  await openDemo(page);
+  await page.click('#btnMore');
+  await page.click('[data-note-color="green"]');
+  await expect(page.locator('[data-note-color="green"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await gotoPage(page, 2);
+  await selectText(page, 2, 'context switch');
+  await page.click('#selNote');
+  const card = page.locator('.annot.active');
+  await expect(card).toHaveClass(/\bgreen\b/);
+  await expect(card.locator('.annot-note')).toBeFocused();
+  await page.keyboard.type('typed without clicking');
+  await expect(card.locator('.annot-note')).toHaveValue('typed without clicking');
+  // The default survives a reload.
+  await page.reload();
+  await expect(page.locator('#selNote')).toHaveAttribute('data-color', 'green');
+});
+
 test('area note on a diagram', async ({ page }) => {
   await openDemo(page);
   await gotoPage(page, 3);

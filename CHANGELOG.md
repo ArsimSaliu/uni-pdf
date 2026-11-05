@@ -2,6 +2,14 @@
 
 All notable changes to uni-pdf. Versions follow [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- **Default note colour:** pick the colour for new highlights and notes in *More (⋯) → Default note color* or from the command palette. It is remembered on this device and used by the **Note** button, `H` and `N`. The Note button shows the current colour.
+
+### Fixed
+- After clicking **Note** on selected text, the note box is ready for typing right away in every browser (Safari and Firefox could lose the cursor).
+
 ## [1.1.0] - 2026-11-05
 
 The study release: features for revising, not just reading.

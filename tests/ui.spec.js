@@ -107,7 +107,7 @@ test('selection toolbar can copy the text and search for it', async ({ page, con
     r.setEnd(t, i + 10);
     getSelection().removeAllRanges();
     getSelection().addRange(r);
-    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, shiftKey: true }));
   });
   await page.click('#selCopy');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Scheduling');
@@ -117,7 +117,7 @@ test('selection toolbar can copy the text and search for it', async ({ page, con
     r.selectNodeContents(s);
     getSelection().removeAllRanges();
     getSelection().addRange(r);
-    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, shiftKey: true }));
   });
   await page.click('#selFind');
   await expect(page.locator('#findBar')).toBeVisible();

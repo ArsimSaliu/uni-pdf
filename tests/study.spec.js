@@ -29,7 +29,7 @@ async function noteOn(page, pageNum, needle, note) {
     r.setEnd(t, i + needle.length);
     getSelection().removeAllRanges();
     getSelection().addRange(r);
-    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, shiftKey: true }));
   }, { pageNum, needle });
   await expect(page.locator('#selToolbar')).toBeVisible();
   await page.click('#selNote');

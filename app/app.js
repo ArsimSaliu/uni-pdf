@@ -910,6 +910,22 @@
   $$('[data-note-color]').forEach((b) => b.addEventListener('click', () => setNoteColor(b.dataset.noteColor)));
   syncNoteColor();
 
+  // "Write a note when I select text": selecting text with the mouse creates a note right
+  // away, with the cursor in its box. On by default; hold Shift while selecting to get the
+  // toolbar instead (highlight only, copy, find). Saved on this device.
+  let autoNote = true;
+  try { autoNote = localStorage.getItem('autoNote') !== '0'; } catch (_) { /* ignore */ }
+  function syncAutoNote() {
+    $('#autoNoteToggle').setAttribute('aria-checked', String(autoNote));
+  }
+  function setAutoNote(on) {
+    autoNote = !!on;
+    try { localStorage.setItem('autoNote', autoNote ? '1' : '0'); } catch (_) { /* ignore */ }
+    syncAutoNote();
+  }
+  $('#autoNoteToggle').addEventListener('click', () => setAutoNote(!autoNote));
+  syncAutoNote();
+
   function selectionInTextLayer() {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -1231,9 +1247,11 @@
       return;
     }
     if (selToolbar.contains(e.target)) return;
+    const showToolbar = !autoNote || e.shiftKey;
     setTimeout(() => {
       const range = selectionInTextLayer();
-      if (range) showSelToolbar(range);
+      if (range && !showToolbar) createFromSelection(noteColor, true);
+      else if (range) showSelToolbar(range);
       else if (!selToolbar.hidden) hideSelToolbar();
     }, 0);
   });
@@ -2527,6 +2545,10 @@
     for (const nc of COLORS) {
       add('Note color', 'highlighter', `Default note color: ${nc}`, () => { setNoteColor(nc); toast(`New notes will be ${nc}.`); }, nc === noteColor ? '✓' : '');
     }
+    add('Note color', 'sticky-note', `${autoNote ? 'Turn off' : 'Turn on'}: write a note when I select text`, () => {
+      setAutoNote(!autoNote);
+      toast(autoNote ? 'Selecting text now opens a note.' : 'Selecting text now shows the toolbar.');
+    }, autoNote ? '✓' : '');
     add('Help', 'keyboard', 'Keyboard shortcuts', openHelp, '?');
     for (const d of libDocs) add('Lectures', 'file-text', baseName(d.name), () => openDoc(d.id), d.course || '');
     return c;
@@ -2733,7 +2755,7 @@
   };
   $('#btnExport').addEventListener('click', (e) => { e.stopPropagation(); setMenu(exportMenu.hidden, exportMenu); });
   $('#btnMore').addEventListener('click', (e) => { e.stopPropagation(); setMenu(moreMenu.hidden, moreMenu); });
-  moreMenu.addEventListener('click', (e) => { if (e.target.closest('.theme-seg, .note-color-seg')) e.stopPropagation(); });
+  moreMenu.addEventListener('click', (e) => { if (e.target.closest('.theme-seg, .note-color-seg, #autoNoteToggle')) e.stopPropagation(); });
   document.addEventListener('click', () => setMenu(false));
   $$('[data-more]', moreMenu).forEach((b) => b.addEventListener('click', () => {
     const k = b.dataset.more;

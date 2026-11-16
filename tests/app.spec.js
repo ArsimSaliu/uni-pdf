@@ -21,8 +21,9 @@ async function gotoPage(page, n) {
 }
 
 // Select the text of the first text-layer span on a page containing `needle`.
-async function selectText(page, pageNum, needle) {
-  await page.evaluate(({ pageNum, needle }) => {
+// By default Shift is held, which shows the selection toolbar instead of opening a note.
+async function selectText(page, pageNum, needle, { toolbar = true } = {}) {
+  await page.evaluate(({ pageNum, needle, toolbar }) => {
     const spans = [...document.querySelectorAll(`.page[data-page="${pageNum}"] .textLayer span`)];
     const s = spans.find((x) => x.textContent.includes(needle));
     if (!s) throw new Error('text not found: ' + needle);
@@ -34,9 +35,9 @@ async function selectText(page, pageNum, needle) {
     const sel = getSelection();
     sel.removeAllRanges();
     sel.addRange(r);
-    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-  }, { pageNum, needle });
-  await expect(page.locator('#selToolbar')).toBeVisible();
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, shiftKey: toolbar }));
+  }, { pageNum, needle, toolbar });
+  if (toolbar) await expect(page.locator('#selToolbar')).toBeVisible();
 }
 
 test('start screen shows onboarding and opens the demo lecture', async ({ page }) => {
@@ -120,6 +121,31 @@ test('Note focuses the note box and uses the default note color', async ({ page 
   // The default survives a reload.
   await page.reload();
   await expect(page.locator('#selNote')).toHaveAttribute('data-color', 'green');
+});
+
+test('selecting text opens a note right away, unless the setting is off', async ({ page }) => {
+  await openDemo(page);
+  await gotoPage(page, 2);
+  await selectText(page, 2, 'context switch', { toolbar: false });
+  const card = page.locator('.annot.active');
+  await expect(card.locator('.annot-note')).toBeFocused();
+  await expect(page.locator('#selToolbar')).toBeHidden();
+  await page.keyboard.type('straight into the note');
+  await expect(card.locator('.annot-note')).toHaveValue('straight into the note');
+  await expect(page.locator('.page[data-page="2"] .hl')).toHaveCount(1);
+
+  // Turn it off: selecting shows the toolbar again, and that is remembered.
+  await page.click('#btnMore');
+  await expect(page.locator('#autoNoteToggle')).toHaveAttribute('aria-checked', 'true');
+  await page.click('#autoNoteToggle');
+  await expect(page.locator('#autoNoteToggle')).toHaveAttribute('aria-checked', 'false');
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.locator('#pageCount')).toHaveText('6');
+  await gotoPage(page, 2);
+  await selectText(page, 2, 'program in execution', { toolbar: false });
+  await expect(page.locator('#selToolbar')).toBeVisible();
+  await expect(page.locator('.page[data-page="2"] .hl')).toHaveCount(1);
 });
 
 test('area note on a diagram', async ({ page }) => {

@@ -6,6 +6,7 @@ All notable changes to uni-pdf. Versions follow [semantic versioning](https://se
 
 ### Added
 - **Default note colour:** pick the colour for new highlights and notes in *More (⋯) → Default note color* or from the command palette. It is remembered on this device and used by the **Note** button, `H` and `N`. The Note button shows the current colour.
+- **Note when I select text** (on by default): selecting text with the mouse highlights it and opens its note with the cursor already in the box, so you can type straight away. Hold `Shift` while selecting to get the toolbar instead (highlight only, copy, find), or turn it off in *More (⋯)* or the command palette. On touchscreens the toolbar still appears so you can adjust the selection first.
 
 ### Fixed
 - After clicking **Note** on selected text, the note box is ready for typing right away in every browser (Safari and Firefox could lose the cursor).

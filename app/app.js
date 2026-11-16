@@ -12,7 +12,7 @@
   const MIN_SCALE = 0.3;
   const MAX_SCALE = 5;
   const MAX_RENDERED_PAGES = 14;
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const DAY = 864e5;
   const SRS_DAYS = [0, 1, 3, 7, 14, 30, 60, 120];
 
